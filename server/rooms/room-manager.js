@@ -13,6 +13,7 @@ const { GridGameRoom } = require("../games/grid-room");
 const { CheckersRoom } = require("../games/checkers-room");
 const { LudoRoom } = require("../games/ludo-room");
 const { MonopolyRoom } = require("../games/monopoly-room");
+const { LandlordRoom } = require("../games/landlord-room");
 const { RoomModel, isSupportedGameType, roomModelOf, roomPrefixOf } = require("../games/game-types");
 const { RelayRoom } = require("./relay-room");
 const { ErrorCodes } = require("../protocol/errors");
@@ -40,6 +41,7 @@ const AUTHORITATIVE_ROOMS = {
   checkers: (roomId, payload) => new CheckersRoom(roomId, payload),
   ludo: (roomId, payload) => new LudoRoom(roomId, payload),
   monopoly: (roomId, payload) => new MonopolyRoom(roomId, payload),
+  landlord: (roomId) => new LandlordRoom(roomId),
 };
 
 class RoomManager {
@@ -118,7 +120,7 @@ class RoomManager {
         playerId: player.playerId,
         reconnectToken: player.reconnectToken,
         role: player.role,
-        snapshot: room.snapshot(),
+        snapshot: room.personalizedSnapshots ? room.snapshotFor(player.playerId) : room.snapshot(),
       }, requestId || null),
     );
     return { ok: true, roomId, player };
@@ -167,7 +169,7 @@ class RoomManager {
         playerId: player.playerId,
         reconnectToken: player.reconnectToken,
         role: player.role,
-        snapshot: room.snapshot(),
+        snapshot: room.personalizedSnapshots ? room.snapshotFor(player.playerId) : room.snapshot(),
       }, requestId || null),
     );
     // 5. 成员变化后向房间内所有在线连接（含加入者）推送同一份权威快照。
@@ -228,7 +230,7 @@ class RoomManager {
         roomId,
         playerId: player.playerId,
         role: player.role,
-        snapshot: room.snapshot(),
+        snapshot: room.personalizedSnapshots ? room.snapshotFor(player.playerId) : room.snapshot(),
       }, requestId || null),
     );
     // 6. 全员广播最新权威快照（重连者本人也需要：连接切换后由同一份状态驱动渲染）。

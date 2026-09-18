@@ -33,6 +33,7 @@ const AUTHORITATIVE_GAME_TYPES = Object.freeze({
   checkers: "TQ",
   ludo: "FQ",
   monopoly: "DF",
+  landlord: "DD",
 });
 
 /** 转发房前缀。 */

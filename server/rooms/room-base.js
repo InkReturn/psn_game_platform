@@ -203,10 +203,26 @@ class RoomBase {
   }
 
   /**
+   * 个性化快照（协议下发用）。
+   *
+   * 有私有状态的房间（如斗地主/21点/德州：他人手牌、暗牌、牌堆不得下发）
+   * 覆写本方法，按玩家返回各自可见的快照；默认与 snapshot() 相同。
+   * 覆写方必须同时在构造器里设置 this.personalizedSnapshots = true，
+   * 这样广播与加入/重连响应都会自动走个性化路径。
+   *
+   * @param {string} playerId - 玩家 id。
+   * @returns {object} 该玩家可见的快照。
+   */
+  snapshotFor(playerId) {
+    void playerId;
+    return this.snapshot();
+  }
+
+  /**
    * 权威房间状态推送（房间同步的唯一出口）。
    *
    * 任何会影响房间成员/座位的状态变化（加入、离开、断线、重连、对局开始/结束、
-   * 重新开局）都必须走本方法：服务端更新完权威状态后，立即把同一份快照
+   * 重新开局）都必须走本方法：服务端更新完权威状态后，立即把快照
    * `room.snapshot` 发给房间内所有在线连接（含触发者本人）。
    *
    * 为什么不能只依赖 room.player_joined 这类增量事件：
@@ -217,9 +233,18 @@ class RoomBase {
    *   event: "player_joined" | "player_left" | "player_disconnected" | "player_reconnected"
    *          | "game_started" | "game_finished" | "game_restarted" | "room_created"
    *   其余字段原样透传（playerId / nickname / role 等，便于客户端做提示文案）。
-   * @returns {object} 已广播的信封，便于调用方（测试）断言。
+   * @returns {object|null} 已广播的信封（个性化快照模式下返回 null，测试改为检查各客户端收到的消息）。
    */
   broadcastSnapshot(context) {
+    // 1. 个性化快照：每个玩家只收到自己可见的数据（私有状态房间）。
+    if (this.personalizedSnapshots) {
+      for (const player of this.players.values()) {
+        if (!player.connected || !player.conn) continue;
+        player.conn.send(makeMessage("room.snapshot", { ...(context || {}), snapshot: this.snapshotFor(player.playerId) }));
+      }
+      return null;
+    }
+    // 2. 公共快照：所有连接收到同一份。
     const envelope = makeMessage("room.snapshot", { ...(context || {}), snapshot: this.snapshot() });
     this.broadcast(envelope);
     return envelope;
@@ -234,12 +259,24 @@ class RoomBase {
    *      "事件语义"的客户端分支（例如判断"离开的是不是我自己"）；
    *   2. room.snapshot 全量快照，作为客户端渲染的唯一权威数据源。
    * 两条消息都是幂等的状态覆盖，重复应用不会产生任何副作用。
+   * 个性化快照模式下，每个玩家收到的事件与快照都只含自己可见的数据。
    *
    * @param {string} type - 事件消息类型。
    * @param {object} payload - 事件负载（会自动补上最新 snapshot）。
-   * @returns {object} 实际下发的 room.snapshot 信封。
+   * @returns {object|null} 实际下发的 room.snapshot 信封（个性化模式下返回 null）。
    */
   broadcastEventWithSnapshot(type, payload) {
+    // 1. 个性化快照：逐玩家下发各自可见的事件 + 快照。
+    if (this.personalizedSnapshots) {
+      for (const player of this.players.values()) {
+        if (!player.connected || !player.conn) continue;
+        const snapshot = this.snapshotFor(player.playerId);
+        player.conn.send(makeMessage(type, { ...(payload || {}), snapshot }));
+        player.conn.send(makeMessage("room.snapshot", { ...(payload || {}), snapshot }));
+      }
+      return null;
+    }
+    // 2. 公共快照：同一份发给所有人。
     const merged = { ...(payload || {}), snapshot: this.snapshot() };
     this.broadcast(makeMessage(type, merged));
     return this.broadcastSnapshot(payload);

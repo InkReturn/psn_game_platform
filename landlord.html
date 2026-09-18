@@ -7,8 +7,9 @@
     <link rel="stylesheet" href="styles.css" />
     <script defer src="net-client.js"></script>
     <script defer src="room-panel-shared.js"></script>
-    <script defer src="room-common.js"></script>
-    <script defer src="landlord.js"></script>
+    <script defer src="authoritative-room.js"></script>
+    <script defer src="landlord-rules.js"></script>
+    <script defer src="landlord-net.js"></script>
   </head>
   <body>
     <div class="single-shell">
@@ -17,7 +18,7 @@
           <div class="brand-mark">LP</div>
           <div>
             <h1>斗地主</h1>
-            <p>房间制二人加机器人</p>
+            <p>房间制 3 人在线对战</p>
           </div>
         </div>
         <a class="back-link" href="index.html">返回游戏大厅</a>
@@ -48,12 +49,7 @@
 
         <section class="control-card">
           <h3>开局</h3>
-          <div class="inline-actions">
-            <button id="addHumanBtn" type="button">加入真人</button>
-            <button id="addRobotBtn" type="button">启动机器人</button>
-          </div>
-          <button id="startLandlordBtn" class="primary-btn" type="button">开始游戏</button>
-          <p id="landlordRoomLog" class="mini-note">斗地主需要 3 个座位：最多 2 个真人，未满时可补机器人。</p>
+          <p id="landlordRoomLog" class="mini-note">斗地主需要 3 名玩家：满员后自动洗牌发牌，洗牌与发牌由服务器完成。</p>
         </section>
 
         <section class="control-card">

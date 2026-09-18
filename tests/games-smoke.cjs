@@ -72,28 +72,16 @@ async function createRoomAndWait(page) {
   await page.click("#hitBtn");
   const blackjackState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
+  // 斗地主已改为服务器权威房：单人建房停在"等待满员"（3 人满员自动发牌）。
+  // 完整的三人对局（叫分/出牌/隐私/刷新恢复/重发/离开）由 tests/landlord-dual.cjs 覆盖。
   await page.goto(`${baseUrl}/landlord.html`, { waitUntil: "networkidle" });
   await createRoomAndWait(page);
-  await page.click("#addRobotBtn");
-  await page.click("#startLandlordBtn");
-  await page.click("#callLandlordBtn");
-  await page.click("#passBidBtn");
-  await page.waitForFunction(() => {
-    const state = JSON.parse(window.render_game_to_text());
-    return state.phase === "playing";
-  });
-  await page.waitForFunction(() => {
-    const state = JSON.parse(window.render_game_to_text());
-    return state.seats[state.turn]?.type === "human";
-  });
-  await page.click("#hintCardsBtn");
   const landlordState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
-  const addRobotDisabled = await page.locator("#addRobotBtn").isDisabled();
 
   await page.screenshot({ path: "outputs/games-smoke.png", fullPage: true });
   await browser.close();
 
-  console.log(JSON.stringify({ monopolyState, ludoState, checkersState, animalState, texasState, blackjackState, landlordState, addRobotDisabled, errors }, null, 2));
+  console.log(JSON.stringify({ monopolyState, ludoState, checkersState, animalState, texasState, blackjackState, landlordState, errors }, null, 2));
 
   if (errors.length) process.exit(1);
   // 大富翁权威房：单人建房应配置 4 人局、未开局、已进房，且我方坐 0 号位。
@@ -112,12 +100,8 @@ async function createRoomAndWait(page) {
   if (!["preflop", "flop", "turn", "river", "showdown"].includes(texasState.phase)) process.exit(1);
   if (blackjackState.seats.length < 2 || !blackjackState.started || !blackjackState.room?.roomId) process.exit(1);
   if (!["player", "dealer", "showdown"].includes(blackjackState.phase)) process.exit(1);
-  if (landlordState.seats.length !== 3 || !landlordState.started || !landlordState.room?.roomId) process.exit(1);
-  if (landlordState.phase !== "playing") process.exit(1);
-  if (landlordState.bottomCards.length !== 3) process.exit(1);
-  if (!landlordState.seats.some((seat) => seat.isLandlord && seat.handCount >= 17)) process.exit(1);
-  if (landlordState.seats.every((seat) => seat.handCount === 18)) process.exit(1);
-  if (!landlordState.seats.some((seat) => seat.type === "robot")) process.exit(1);
-  if (!landlordState.selected.length) process.exit(1);
-  if (!addRobotDisabled) process.exit(1);
+  // 斗地主权威房：单人建房应已进房、未开局（等待满员），且我方坐 0 号位。
+  if (landlordState.started || landlordState.phase !== "idle" || !landlordState.room?.roomId) process.exit(1);
+  if (landlordState.mySeatIndex !== 0) process.exit(1);
+  if (landlordState.myHand.length !== 0) process.exit(1);
 })();
