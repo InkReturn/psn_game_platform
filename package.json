@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/lobby-smoke.cjs && node tests/gomoku-smoke.cjs && node tests/games-smoke.cjs && node tests/grid-games-smoke.cjs"
+    "test": "node tests/run-all.cjs",
+    "test:protocol": "node tests/server-protocol.cjs",
+    "test:dual": "node tests/gomoku-dual.cjs"
   },
   "keywords": [],
   "author": "",
@@ -15,9 +17,7 @@
     "playwright": "^1.61.1"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.110.1",
     "express": "^5.2.1",
-    "peer": "^1.0.2",
-    "peerjs": "^1.5.5"
+    "ws": "^8.21.3"
   }
 }

@@ -3,6 +3,22 @@ const { chromium } = require("playwright");
 
 const baseUrl = process.env.BASE_URL || "http://127.0.0.1:8080";
 
+/**
+ * 点击"创建房间"并等待服务器返回房间码。
+ *
+ * 房间码由自建服务器分配，创建后 #leaveRoomBtn 才会解除隐藏；
+ * 必须等它可见再继续（立即读取会拿到创建前的状态）。
+ *
+ * @param {import("playwright").Page} page - 目标游戏页面。
+ * @returns {Promise<void>} 房间就绪后 resolve。
+ */
+async function createRoomAndWait(page) {
+  // 1. 触发建房（面板内部完成 WS 连接与 room.create 往返）。
+  await page.click("#hostBtn");
+  // 2. 房内控件出现即代表房间码已下发。
+  await page.locator("#leaveRoomBtn").waitFor({ state: "visible", timeout: 20000 });
+}
+
 (async () => {
   fs.mkdirSync("outputs", { recursive: true });
 
@@ -16,25 +32,25 @@ const baseUrl = process.env.BASE_URL || "http://127.0.0.1:8080";
   page.on("pageerror", (err) => errors.push(err.message));
 
   await page.goto(`${baseUrl}/monopoly.html`, { waitUntil: "networkidle" });
-  await page.click("#hostBtn");
+  await createRoomAndWait(page);
   await page.selectOption("#monopolyPlayerCount", "4");
   await page.click("#startMonopolyBtn");
   const monopolyState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   await page.goto(`${baseUrl}/ludo.html`, { waitUntil: "networkidle" });
-  await page.click("#hostBtn");
+  await createRoomAndWait(page);
   await page.selectOption("#ludoPlayerCount", "4");
   await page.click("#startLudoBtn");
   const ludoState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   await page.goto(`${baseUrl}/checkers.html`, { waitUntil: "networkidle" });
-  await page.click("#hostBtn");
+  await createRoomAndWait(page);
   await page.selectOption("#checkersPlayerCount", "6");
   await page.click("#startCheckersBtn");
   const checkersState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   await page.goto(`${baseUrl}/animal-chess.html`, { waitUntil: "networkidle" });
-  await page.click("#hostBtn");
+  await createRoomAndWait(page);
   await page.click("#startAnimalBtn");
   await page.click(".animal-cell:nth-child(43)");
   const animalSelectedState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
@@ -42,21 +58,21 @@ const baseUrl = process.env.BASE_URL || "http://127.0.0.1:8080";
   const animalState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   await page.goto(`${baseUrl}/texas.html`, { waitUntil: "networkidle" });
-  await page.click("#hostBtn");
+  await createRoomAndWait(page);
   await page.click("#addTexasRobotBtn");
   await page.click("#startTexasBtn");
   await page.click("#checkCallBtn");
   const texasState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   await page.goto(`${baseUrl}/blackjack.html`, { waitUntil: "networkidle" });
-  await page.click("#hostBtn");
+  await createRoomAndWait(page);
   await page.click("#addBlackjackRobotBtn");
   await page.click("#startBlackjackBtn");
   await page.click("#hitBtn");
   const blackjackState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   await page.goto(`${baseUrl}/landlord.html`, { waitUntil: "networkidle" });
-  await page.click("#hostBtn");
+  await createRoomAndWait(page);
   await page.click("#addRobotBtn");
   await page.click("#startLandlordBtn");
   await page.click("#callLandlordBtn");

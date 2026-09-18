@@ -3,6 +3,27 @@ const { chromium } = require("playwright");
 
 const baseUrl = process.env.BASE_URL || "http://127.0.0.1:8080";
 
+/**
+ * 等待页面进入"已连上自建服务器且在房间内"的稳定状态。
+ *
+ * 房间码由服务器分配，点击创建按钮后必须等一次网络往返，
+ * 不能立即读取状态（否则拿到的是房间创建前的空值）。
+ *
+ * @param {import("playwright").Page} page - 目标页面。
+ * @param {number} [timeoutMs] - 超时毫秒。
+ * @returns {Promise<void>} 就绪后 resolve。
+ */
+function waitOnlineRoom(page, timeoutMs = 20000) {
+  return page.waitForFunction(
+    () => {
+      const state = JSON.parse(window.render_game_to_text());
+      return state.mode === "online" && Boolean(state.roomId) && state.serverConnected === true;
+    },
+    null,
+    { timeout: timeoutMs },
+  );
+}
+
 (async () => {
   fs.mkdirSync("outputs", { recursive: true });
 
@@ -17,6 +38,8 @@ const baseUrl = process.env.BASE_URL || "http://127.0.0.1:8080";
 
   await page.goto(`${baseUrl}/gomoku.html`, { waitUntil: "networkidle" });
   await page.click("#hostBtn");
+  // 1. 等服务器回房间码，再读状态。
+  await waitOnlineRoom(page);
 
   const initialState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
   const controlsAfterJoin = await page.evaluate(() => ({
@@ -25,11 +48,15 @@ const baseUrl = process.env.BASE_URL || "http://127.0.0.1:8080";
     localHidden: document.querySelector("#localBtn")?.hidden ?? null,
     leaveHidden: document.querySelector("#leaveRoomBtn")?.hidden ?? null,
   }));
+  // 2. 刷新后凭 localStorage 凭据自动恢复身份与房间。
   await page.reload({ waitUntil: "networkidle" });
+  await waitOnlineRoom(page);
   const restoredState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   await page.click("#leaveRoomBtn");
+  await page.waitForFunction(() => !JSON.parse(window.render_game_to_text()).roomId);
   await page.click("#localBtn");
+  await page.waitForFunction(() => JSON.parse(window.render_game_to_text()).mode === "local");
 
   const box = await page.locator("#boardCanvas").boundingBox();
   const cellPoint = (row, col) => {
@@ -104,6 +131,7 @@ const baseUrl = process.env.BASE_URL || "http://127.0.0.1:8080";
 
   await page.goto(`${baseUrl}/gomoku.html`, { waitUntil: "networkidle" });
   await page.click("#localBtn");
+  await page.waitForFunction(() => JSON.parse(window.render_game_to_text()).mode === "local");
   await page.click("#surrenderBtn");
   await page.locator("#resultModal").waitFor({ state: "visible" });
   const surrenderState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
@@ -114,12 +142,11 @@ const baseUrl = process.env.BASE_URL || "http://127.0.0.1:8080";
   console.log(JSON.stringify({ initialState, restoredState, controlsAfterJoin, undoRollbackState, status, modalText, wonState, replayState, secondWonState, lobbyTitle, surrenderState, errors }, null, 2));
 
   if (errors.length) process.exit(1);
-  if (!initialState.supabaseConfigured) {
-    if (!initialState.message.includes("Supabase")) process.exit(1);
-  } else {
-    if (!initialState.roomId || initialState.mode !== "online") process.exit(1);
-    if (restoredState.roomId !== initialState.roomId || restoredState.mode !== "online") process.exit(1);
-  }
+  // 联机链路口径：房间码来自服务器，传输层为自建 WebSocket，刷新后凭据恢复同一身份。
+  if (!initialState.roomId || initialState.mode !== "online") process.exit(1);
+  if (initialState.transportKind !== "server-ws" || !initialState.serverConnected) process.exit(1);
+  if (restoredState.roomId !== initialState.roomId || restoredState.mode !== "online") process.exit(1);
+  if (restoredState.playerId !== initialState.playerId) process.exit(1);
   if (!controlsAfterJoin.hostHidden || !controlsAfterJoin.joinHidden || !controlsAfterJoin.localHidden || controlsAfterJoin.leaveHidden) process.exit(1);
   if (undoRollbackState.moves.length !== 1 || undoRollbackState.moves[0].row !== 3 || undoRollbackState.moves[0].col !== 3) process.exit(1);
   if (undoRollbackState.turn !== "白棋") process.exit(1);

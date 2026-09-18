@@ -127,3 +127,36 @@ Original prompt: 写一个能在github上搭建的多人链接小游戏平台，
 - Surrender immediately ends the current game, credits the opponent by player name, opens the existing result panel, and follows the existing next-game side rule.
 - Added smoke coverage for Gomoku and Tic Tac Toe surrender result/record behavior.
 - Verified with syntax checks, focused smoke tests, full `npm test`, and screenshots at `outputs/gomoku-surrender.png` and `outputs/tictactoe-surrender.png`.
+
+## 2026-09-18 服务端化改造（自建 Node + WebSocket，清除 PeerJS/Supabase/WebRTC）
+
+- 删除 `app.js`（遗留 PeerJS Cloud + WebRTC 死代码，无任何 HTML 引用）、`config.js`（Supabase 配置）、
+  `vendor/peerjs.min.js`、`vendor/supabase.js`，并从 `package.json` 卸载 `peer`、`peerjs`、`@supabase/supabase-js`。
+- 新增自建服务端：`server.js`（Express 静态托管 + `/health` + 优雅停机）、`server/config.js`、
+  `server/protocol/{errors,messages}.js`、`server/rooms/{room-base,relay-room,room-manager}.js`、
+  `server/games/{gomoku-engine,gomoku-room}.js`、`server/ws/hub.js`；协议为 v1 信封
+  `{version:1, type, requestId?, payload}`，客户端按 `requestId` 关联响应。
+- 五子棋改为服务器权威：棋盘/轮次/胜负/悔棋/认输/换先/战绩全部由 `GomokuRoom` 持有，
+  客户端只发操作意图，服务器校验后广播 `game.updated` 权威快照（快照字段与原客户端 `roomSnapshot()` 对齐）。
+- 其余 10 款游戏改为服务器 relay 转发房：保留房主权威快照广播模型，仅把传输层从
+  Supabase Realtime 换成自建 WebSocket；`room-common.js` 的 `initRoomPanel` 接口保持兼容，
+  各游戏 JS 零改动。
+- 新增 `net-client.js`（浏览器共享 WS 客户端：requestId 关联、指数退避重连、错误码→中文文案）
+  与 `gomoku-net.js`（五子棋房间面板 + localStorage 凭据 `linkplay-room-gomoku-v3`，刷新后恢复身份）。
+- 新增 `tests/server-protocol.cjs`（25 项协议用例）与 `tests/gomoku-dual.cjs`
+  （8 项双浏览器联机验收，含"全程只访问本源域名、无 PeerJS/Supabase/WebRTC 外连"断言），
+  新增 `tests/run-all.cjs` 统一 runner，`npm test` 改为一条命令跑全部 6 个测试文件。
+- 修复改造过程中被测试暴露的 3 个真实缺陷：
+  1. `RelayRoom` 缺少 `snapshot()`，relay 房创建/加入直接抛 `INTERNAL_ERROR`；
+  2. 五子棋 `game.updated` 广播不带 `requestId`，发起的客户端永远等不到响应
+     （表现为"落子有生效但前端一直转圈/超时"）；
+  3. `gomoku-app.js` 的角色与句柄问题：`onRoomChange` 未按服务器座位重新推导本地执子颜色
+     （建房后角色停留在 `spectator`，房主无法落子）；`roomApi` 用 `const` 声明导致
+     带 `?room=` 邀请链接加载时抛 TDZ 异常、整页脚本中断。
+  4. `tryReconnect` 被 `onStatus("online")` 与 `connect().then` 双触发，第二个 `room.reconnect`
+     被 `ALREADY_IN_ROOM` 拒绝后把状态误判为连接错误（刷新恢复必然失败），
+     已在 `gomoku-net.js` 与 `room-common.js` 用并发去重修复。
+- 重写 `README.md`：新架构、协议、运行约定（内存房间重启即失、90 秒断线宽限、空闲回收、限频）、
+  测试矩阵、Nginx + HTTPS/WSS + systemd 部署步骤。
+- 验证：`npm test` 6/6 测试文件通过（协议 25/25、双端 8/8）；五子棋本地模式与其余 10 款游戏回归均通过。
+- 已知约定：房间与对局状态仅存进程内存，服务重启即丢失；跨设备持久房间留待后续引入存储层。
