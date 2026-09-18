@@ -33,10 +33,12 @@ const SUITES = [
   { file: "tests/monopoly-authority.cjs", label: "大富翁权威房间 WS 联机测试（服务器骰子/购买/破产终局）" },
   { file: "tests/landlord-rules.cjs", label: "斗地主规则单元测试（牌型/压牌/提示）" },
   { file: "tests/landlord-authority.cjs", label: "斗地主权威房间 WS 联机测试（洗牌/私有快照/隐私泄漏负向）" },
+  { file: "tests/blackjack-rules.cjs", label: "21 点规则单元测试（点数/结算/爆牌不赢回归）" },
+  { file: "tests/blackjack-authority.cjs", label: "21 点权威房间 WS 联机测试（庄家暗牌隔离/隐私泄漏负向）" },
   { file: "tests/animal-chess-dual.cjs", label: "斗兽棋服务器权威双客户端验收" },
   { file: "tests/lobby-smoke.cjs", label: "大厅 → 五子棋导航" },
   { file: "tests/gomoku-smoke.cjs", label: "五子棋冒烟（联机 + 本地）" },
-  { file: "tests/games-smoke.cjs", label: "联机游戏建房（relay 两款 + 权威房八款冒烟）" },
+  { file: "tests/games-smoke.cjs", label: "联机游戏建房（texas relay + 权威房九款冒烟）" },
   { file: "tests/grid-games-smoke.cjs", label: "棋盘类游戏本地规则" },
   { file: "tests/gomoku-dual.cjs", label: "五子棋双端联机验收" },
   { file: "tests/grid-dual.cjs", label: "棋类游戏双浏览器联机验收（井字棋/四子棋/黑白棋）" },
@@ -44,6 +46,7 @@ const SUITES = [
   { file: "tests/ludo-dual.cjs", label: "飞行棋双浏览器联机验收（服务器骰子完整一局）" },
   { file: "tests/monopoly-dual.cjs", label: "大富翁双浏览器联机验收（购买/破产完整一局）" },
   { file: "tests/landlord-dual.cjs", label: "斗地主三浏览器联机验收（叫分/出牌/隐私/完整一局）" },
+  { file: "tests/blackjack-dual.cjs", label: "21 点双浏览器联机验收（要牌/停牌/结算/隐私）" },
 ];
 
 /** 被测服务器进程。 */
