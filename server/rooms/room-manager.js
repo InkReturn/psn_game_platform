@@ -8,6 +8,9 @@
 "use strict";
 
 const { GomokuRoom } = require("../games/gomoku-room");
+const { AnimalChessRoom } = require("../games/animal-chess-room");
+const { GridGameRoom } = require("../games/grid-room");
+const { RoomModel, isSupportedGameType, roomModelOf, roomPrefixOf } = require("../games/game-types");
 const { RelayRoom } = require("./relay-room");
 const { ErrorCodes } = require("../protocol/errors");
 const { makeMessage } = require("../protocol/messages");
@@ -23,6 +26,15 @@ const {
 function defaultLog(...args) {
   console.log("[rooms]", ...args);
 }
+
+/** 权威房构造表：gameType -> (roomId) => Room。 */
+const AUTHORITATIVE_ROOMS = {
+  gomoku: (roomId) => new GomokuRoom(roomId),
+  "animal-chess": (roomId) => new AnimalChessRoom(roomId),
+  tictactoe: (roomId) => new GridGameRoom(roomId, "tictactoe"),
+  reversi: (roomId) => new GridGameRoom(roomId, "reversi"),
+  connect4: (roomId) => new GridGameRoom(roomId, "connect4"),
+};
 
 class RoomManager {
   /** @param {{log?: Function}} [options] - log 可注入自定义日志器。 */
@@ -75,20 +87,20 @@ class RoomManager {
     if (this.bindings.has(conn.playerKey)) {
       return { ok: false, code: ErrorCodes.ALREADY_IN_ROOM };
     }
-    // 2. 校验昵称与游戏类型。
+    // 2. 先校验游戏类型与昵称，任何一步失败都不允许产生副作用（不建房、不入座）。
+    const gameType = String(payload.gameType || "");
+    if (!isSupportedGameType(gameType)) {
+      return { ok: false, code: ErrorCodes.INVALID_ACTION, detail: `unsupported gameType ${gameType}` };
+    }
     const nickname = this.sanitizeNickname(payload.nickname);
     if (!nickname) return { ok: false, code: ErrorCodes.INVALID_NICKNAME };
-    const gameType = String(payload.gameType || "");
-    if (gameType !== "gomoku" && !gameType.startsWith("relay:")) {
-      return { ok: false, code: ErrorCodes.INVALID_ACTION, detail: `bad gameType ${gameType}` };
-    }
-    // 3. 建房：gomoku 用权威房，其余用转发房。
-    const prefix = String(payload.prefix || gameType.replace("relay:", "").slice(0, 2) || "RM").slice(0, 2);
+    // 3. 建房：权威房由服务端持有对局状态，其余走转发房。
+    const prefix = String(payload.prefix || roomPrefixOf(gameType)).slice(0, 2);
     const roomId = this.generateRoomId(prefix);
-    const room = gameType === "gomoku" ? new GomokuRoom(roomId) : new RelayRoom(roomId, gameType);
+    const room = AUTHORITATIVE_ROOMS[gameType] ? AUTHORITATIVE_ROOMS[gameType](roomId) : new RelayRoom(roomId, gameType);
     this.rooms.set(roomId, room);
-    // 4. 创建者入座并绑定连接。
-    const player = room.createPlayer(nickname);
+    // 4. 创建者入座（标记房主）并绑定连接。
+    const player = room.createPlayer(nickname, { host: true });
     room.seatPlayer(player, "host");
     room.attach(player.playerId, conn);
     this.bindings.set(conn.playerKey, { room, player });
@@ -115,26 +127,34 @@ class RoomManager {
    * @returns {{ok: boolean, code?: string}} 结果。
    */
   joinRoom(conn, payload, requestId) {
-    // 1. 前置校验：连接未绑房、房间码格式合法。
+    // 1. 前置校验：连接未绑房、房间码格式合法、房间存在。
     if (this.bindings.has(conn.playerKey)) return { ok: false, code: ErrorCodes.ALREADY_IN_ROOM };
     const roomId = String(payload.roomId || "").trim().toUpperCase();
     if (!ROOM_ID_PATTERN.test(roomId)) return { ok: false, code: ErrorCodes.INVALID_ROOM_ID };
     const room = this.rooms.get(roomId);
     if (!room) return { ok: false, code: ErrorCodes.ROOM_NOT_FOUND };
-    // 2. 满员/类型检查与昵称校验。
+    // 2. 全部校验必须在"入座/绑定"之前完成：任何被拒绝的加入都不能留下幽灵座位。
+    //    2.1 房间类型校验：没有显式声明 gameType 时按房间码格式推断，避免五子棋房与
+    //        斗兽棋房互相加入（房间码前缀由服务端分配，可反向推断类型）。
+    const declaredGameType = payload.gameType === undefined || payload.gameType === null ? "" : String(payload.gameType);
+    if (declaredGameType && room.gameType !== declaredGameType) {
+      return { ok: false, code: ErrorCodes.ROOM_TYPE_MISMATCH, detail: `room=${room.gameType} request=${declaredGameType}` };
+    }
+    if (!declaredGameType && !this._roomIdMatchesGameType(roomId, room.gameType)) {
+      return { ok: false, code: ErrorCodes.ROOM_TYPE_MISMATCH, detail: `room=${room.gameType} roomId=${roomId}` };
+    }
+    //    2.2 满员校验。
     if (room.players.size >= room.maxPlayers) return { ok: false, code: ErrorCodes.ROOM_FULL };
+    //    2.3 昵称校验。
     const nickname = this.sanitizeNickname(payload.nickname);
     if (!nickname) return { ok: false, code: ErrorCodes.INVALID_NICKNAME };
-    if (payload.gameType && room.gameType !== String(payload.gameType)) {
-      return { ok: false, code: ErrorCodes.ROOM_TYPE_MISMATCH };
-    }
     // 3. 入座并绑定。
-    const player = room.createPlayer(nickname);
+    const player = room.createPlayer(nickname, { host: false });
     room.seatPlayer(player, "guest");
     room.attach(player.playerId, conn);
     this.bindings.set(conn.playerKey, { room, player });
     this.log(`player ${nickname} (${player.playerId}) joined room ${roomId}`);
-    // 4. 给加入者回执（含凭据与全量快照），并通知房内其他人。
+    // 4. 给加入者回执（含凭据与全量快照）。
     conn.send(
       makeMessage("room.joined", {
         roomId,
@@ -144,15 +164,32 @@ class RoomManager {
         snapshot: room.snapshot(),
       }, requestId || null),
     );
-    room.broadcast(makeMessage("room.player_joined", { playerId: player.playerId, nickname, role: player.role, snapshot: room.snapshot() }), player.playerId);
+    // 5. 成员变化后向房间内所有在线连接（含加入者）推送同一份权威快照。
+    //    加入者也要收到：它的 room.joined 与快照可能被"座位分配"等后续状态更新，
+    //    统一快照让两端渲染源完全一致。
+    room.broadcastEventWithSnapshot("room.player_joined", { playerId: player.playerId, nickname, role: player.role });
     return { ok: true, roomId, player };
+  }
+
+  /**
+   * 房间码 ↔ 房间类型一致性检查（未声明 gameType 时的兜底校验）。
+   *
+   * 房间码由服务端按 gameType 分配前缀（WZ=五子棋、DS=斗兽棋、其他=relay 游戏 2 位缩写），
+   * 因此前缀可用于拒绝"拿五子棋房号进斗兽棋页面"这类跨游戏加入。
+   *
+   * @param {string} roomId - 8 位房间码（已大写）。
+   * @param {string} gameType - 房间真实类型。
+   * @returns {boolean} true 表示前缀与类型一致。
+   */
+  _roomIdMatchesGameType(roomId, gameType) {
+    return roomId.slice(0, 2) === roomPrefixOf(gameType).padEnd(2, "X").slice(0, 2);
   }
 
   /**
    * 断线重连：凭 playerId + reconnectToken 恢复身份与座位。
    *
    * @param {object} conn - 新连接封装。
-   * @param {object} payload - {roomId, playerId, reconnectToken}。
+   * @param {object} payload - {roomId, playerId, reconnectToken, gameType?}。
    * @param {string|null} [requestId] - 原请求的信封 id，用于关联响应。
    * @returns {{ok: boolean, code?: string}} 结果。
    */
@@ -163,14 +200,23 @@ class RoomManager {
     if (!ROOM_ID_PATTERN.test(roomId)) return { ok: false, code: ErrorCodes.INVALID_ROOM_ID };
     const room = this.rooms.get(roomId);
     if (!room) return { ok: false, code: ErrorCodes.ROOM_NOT_FOUND };
+    const declaredGameType = payload.gameType === undefined || payload.gameType === null ? "" : String(payload.gameType);
+    if (declaredGameType && room.gameType !== declaredGameType) {
+      return { ok: false, code: ErrorCodes.ROOM_TYPE_MISMATCH, detail: `room=${room.gameType} request=${declaredGameType}` };
+    }
     // 2. 校验身份凭据。
     const player = room.verifyReconnect(String(payload.playerId || ""), String(payload.reconnectToken || ""));
     if (!player) return { ok: false, code: ErrorCodes.UNAUTHORIZED_PLAYER };
-    // 3. 重新绑定连接并恢复在线状态。
+    // 3. 回收该玩家遗留的旧连接绑定。
+    //    刷新页面时新连接可能早于旧 socket 的 close 事件到达，此时 bindings 里仍残留
+    //    旧连接 -> 玩家 的映射；不清理会让旧连接被误认为"仍绑定房间"，
+    //    并且旧 socket 迟到的 close 会把刚恢复在线的新连接误标成断线。
+    this.dropStaleBindings(room, player.playerId);
+    // 4. 重新绑定连接并恢复在线状态。
     room.attach(player.playerId, conn);
     this.bindings.set(conn.playerKey, { room, player });
     this.log(`player ${player.nickname} (${player.playerId}) reconnected to room ${roomId}`);
-    // 4. 给重连者下发恢复快照，并通知其他人。
+    // 5. 给重连者下发恢复快照。
     conn.send(
       makeMessage("room.reconnected", {
         roomId,
@@ -179,11 +225,27 @@ class RoomManager {
         snapshot: room.snapshot(),
       }, requestId || null),
     );
-    room.broadcast(
-      makeMessage("room.player_reconnected", { playerId: player.playerId, nickname: player.nickname, snapshot: room.snapshot() }),
-      player.playerId,
-    );
+    // 6. 全员广播最新权威快照（重连者本人也需要：连接切换后由同一份状态驱动渲染）。
+    room.broadcastEventWithSnapshot("room.player_reconnected", { playerId: player.playerId, nickname: player.nickname, role: player.role });
     return { ok: true };
+  }
+
+  /**
+   * 清理某玩家在 bindings 中的旧连接记录（重连时调用）。
+   *
+   * @param {object} room - 目标房间。
+   * @param {string} playerId - 玩家 id。
+   * @returns {number} 被清理的绑定条数。
+   */
+  dropStaleBindings(room, playerId) {
+    let dropped = 0;
+    for (const [key, binding] of this.bindings) {
+      if (binding.room === room && binding.player.playerId === playerId) {
+        this.bindings.delete(key);
+        dropped += 1;
+      }
+    }
+    return dropped;
   }
 
   /**
@@ -197,7 +259,7 @@ class RoomManager {
     const binding = this.bindings.get(conn.playerKey);
     if (!binding) return { ok: true };
     const { room, player } = binding;
-    // 2. 解绑并移除玩家。
+    // 2. 解绑并移除玩家（房间子类在 onPlayerRemoved 里向剩余玩家广播最新权威快照）。
     this.bindings.delete(conn.playerKey);
     room.removePlayer(player.playerId, "leave");
     this.log(`player ${player.nickname} (${player.playerId}) left room ${room.roomId}`);
@@ -215,19 +277,26 @@ class RoomManager {
     const binding = this.bindings.get(conn.playerKey);
     if (!binding) return;
     const { room, player } = binding;
-    // 1. 解除绑定，但保留房间内玩家记录（座位保留）。
+    // 1. 迟到的旧连接 close 事件：该玩家已经在更新的连接上重连成功。
+    //    此时若继续走断线流程，会把在线玩家误标为断线（A 侧表现为"B 已离开"却再也收不到恢复）。
+    if (!room.isCurrentConn(player.playerId, conn)) {
+      this.bindings.delete(conn.playerKey);
+      this.log(`stale connection closed for ${player.nickname} (${player.playerId}) in room ${room.roomId}, ignored`);
+      return;
+    }
+    // 2. 解除绑定，但保留房间内玩家记录（座位保留）。
     this.bindings.delete(conn.playerKey);
     room.detach(player.playerId);
     this.log(`player ${player.nickname} (${player.playerId}) disconnected from room ${room.roomId} (grace started)`);
-    // 2. 通知房内其他玩家。
+    // 3. 通知房内其他玩家。
     room.onPlayerDisconnected(player);
   }
 
   /**
-   * 游戏操作入口（gomoku 权威动作）。
+   * 游戏操作入口（服务器权威动作：五子棋 / 斗兽棋）。
    *
    * @param {object} conn - 连接封装。
-   * @param {object} action - 游戏动作。
+   * @param {object} action - 游戏动作（{action, ...params}）。
    * @param {string|null} [requestId] - 原请求的信封 id，用于把结果关联回该次请求。
    * @returns {{ok: boolean, code?: string, detail?: string}} 结果。
    */
@@ -236,7 +305,7 @@ class RoomManager {
     if (!binding) return { ok: false, code: ErrorCodes.NOT_IN_ROOM };
     const { room, player } = binding;
     // 1. 只有权威房间接受 game.action；relay 房提示用 relay.send。
-    if (!(room instanceof GomokuRoom)) {
+    if (roomModelOf(room.gameType) !== RoomModel.AUTHORITATIVE || typeof room.handleAction !== "function") {
       return { ok: false, code: ErrorCodes.INVALID_ACTION, detail: "room is relay type" };
     }
     return room.handleAction(player, action, requestId);
@@ -253,8 +322,8 @@ class RoomManager {
     const binding = this.bindings.get(conn.playerKey);
     if (!binding) return { ok: false, code: ErrorCodes.NOT_IN_ROOM };
     const { room, player } = binding;
-    // 1. 只有转发房走 relay；gomoku 房走 game.action。
-    if (room instanceof GomokuRoom) {
+    // 1. 只有转发房走 relay；权威房走 game.action。
+    if (roomModelOf(room.gameType) === RoomModel.AUTHORITATIVE) {
       return { ok: false, code: ErrorCodes.INVALID_ACTION, detail: "room is authoritative" };
     }
     room.relay(player, payload);

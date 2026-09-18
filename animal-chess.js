@@ -1,88 +1,103 @@
+/**
+ * 斗兽棋渲染层（浏览器端，服务器权威模式）。
+ *
+ * 职责边界：
+ * - 本地状态只是"服务器权威快照的只读镜像"（animalState 的 pieces/turn/winner 等）；
+ * - 玩家点击只产生意图（选中棋子做提示、发 from/to 走子请求），不修改镜像；
+ * - 高亮与可走位置提示复用 animal-chess-rules.js 的纯函数（与服务端同一套规则代码），
+ *   但最终是否合法由服务器裁决，客户端提示仅用于交互体验。
+ */
+"use strict";
+
 const animalBoard = document.querySelector("#animalBoard");
 const animalTurn = document.querySelector("#animalTurn");
 const animalLog = document.querySelector("#animalLog");
 const animalRoomBadge = document.querySelector("#animalRoomBadge");
 const animalCountBadge = document.querySelector("#animalCountBadge");
 const animalSideBadge = document.querySelector("#animalSideBadge");
+const animalRestartBtn = document.querySelector("#restartAnimalBtn");
 
-const animalPiecesOrder = [
-  { name: "鼠", rank: 1 },
-  { name: "猫", rank: 2 },
-  { name: "狗", rank: 3 },
-  { name: "狼", rank: 4 },
-  { name: "豹", rank: 5 },
-  { name: "虎", rank: 6 },
-  { name: "狮", rank: 7 },
-  { name: "象", rank: 8 },
-];
+/** 服务端与浏览器共用的纯规则模块。 */
+const animalRules = window.AnimalChessRules;
 
+/**
+ * 斗兽棋客户端状态。
+ *
+ * 所有对局字段都来自服务器快照（applyServerSnapshot 覆盖），
+ * 唯一由本地维护的是纯交互态的 selectedId / targets。
+ */
 const animalState = {
-  pieces: initialPieces(),
+  pieces: [],
   turn: "red",
   selectedId: "",
   targets: [],
   started: false,
   over: false,
   winner: "",
-  message: "点击创建或加入房间后，由房主开始对局。",
+  message: "创建或加入房间后，两位玩家到齐即自动开局。",
   moves: [],
   lastMove: null,
+  players: { red: "等待", blue: "等待" },
+  sidePlayerIds: { red: null, blue: null },
   room: null,
 };
 
-const animalRoomApi = window.initRoomPanel({
-  gameKey: "animal-chess",
-  prefix: "DS",
-  getSnapshot: () => animalState,
-  onRemoteState(snapshot) {
-    const localRoom = animalState.room;
-    Object.assign(animalState, snapshot);
-    animalState.room = localRoom;
-    ensureStateShape();
-    renderAnimal();
-  },
+/** 联机面板 API（onRoomChange 会在初始化过程中同步回调，故用 let 声明）。 */
+let animalRoomApi = null;
+
+animalRoomApi = window.initAnimalChessPanel({
   onRoomChange(room) {
     animalState.room = room;
-    animalRoomBadge.textContent = room.roomId ? `房间：${room.roomId}` : "房间：未进入";
+    // 1. 房间状态变化后立刻重绘（成员列表由面板自己渲染，这里只更新棋盘侧信息）。
+    renderAnimal();
+  },
+  onGameUpdate(snapshot) {
+    // 1. 服务器权威快照到达：覆盖本地镜像并重绘。
+    applyServerSnapshot(snapshot);
+    renderAnimal();
+  },
+  onError(err) {
+    if (err && err.message) {
+      animalState.message = err.message;
+      renderAnimal();
+    }
   },
 });
 
-document.querySelector("#startAnimalBtn").addEventListener("click", startAnimalGame);
-document.querySelector("#resetAnimalBtn").addEventListener("click", startAnimalGame);
+animalRestartBtn?.addEventListener("click", () => {
+  if (!animalRoomApi.hasRoom()) {
+    animalState.message = "请先创建或加入房间。";
+    renderAnimal();
+    return;
+  }
+  // 1. 重开一局同样只是意图：服务器清盘后广播权威快照。
+  animalRoomApi.sendAction("restart").catch(() => {});
+});
 
-function initialPieces() {
-  return [
-    piece("red", "狮", 7, 8, 0),
-    piece("red", "虎", 6, 8, 6),
-    piece("red", "狗", 3, 7, 1),
-    piece("red", "猫", 2, 7, 5),
-    piece("red", "鼠", 1, 6, 0),
-    piece("red", "豹", 5, 6, 2),
-    piece("red", "狼", 4, 6, 4),
-    piece("red", "象", 8, 6, 6),
-    piece("blue", "狮", 7, 0, 6),
-    piece("blue", "虎", 6, 0, 0),
-    piece("blue", "狗", 3, 1, 5),
-    piece("blue", "猫", 2, 1, 1),
-    piece("blue", "鼠", 1, 2, 6),
-    piece("blue", "豹", 5, 2, 4),
-    piece("blue", "狼", 4, 2, 2),
-    piece("blue", "象", 8, 2, 0),
-  ];
+/**
+ * 应用服务器权威快照。
+ *
+ * @param {object} snapshot - {room, game} 服务器快照。
+ */
+function applyServerSnapshot(snapshot) {
+  if (!snapshot?.game) return;
+  const g = snapshot.game;
+  // 1. 覆盖全部权威字段（棋子、轮次、胜负、走子记录、座位映射）。
+  animalState.pieces = Array.isArray(g.pieces) ? g.pieces : [];
+  animalState.turn = g.turn || "red";
+  animalState.started = Boolean(g.started);
+  animalState.over = Boolean(g.over);
+  animalState.winner = g.winner || "";
+  animalState.message = g.message || animalState.message;
+  animalState.moves = Array.isArray(g.moves) ? g.moves : [];
+  animalState.lastMove = g.lastMove || null;
+  animalState.players = g.players || animalState.players;
+  animalState.sidePlayerIds = g.sidePlayerIds || { red: null, blue: null };
+  // 2. 快照到来自动清理选中态：服务器棋盘变了，旧的提示高亮已无意义。
+  removeSelection();
 }
 
-function piece(owner, name, rank, row, col) {
-  return {
-    id: `${owner}-${name}-${row}-${col}-${Math.random().toString(36).slice(2, 8)}`,
-    owner,
-    name,
-    rank,
-    row,
-    col,
-    alive: true,
-  };
-}
-
+/** 补齐可能缺失的字段（首次渲染与快照到达前使用）。 */
 function ensureStateShape() {
   animalState.pieces ||= [];
   animalState.targets ||= [];
@@ -93,57 +108,123 @@ function ensureStateShape() {
   animalState.lastMove ||= null;
   animalState.selectedId ||= "";
   animalState.room ||= null;
+  animalState.players ||= { red: "等待", blue: "等待" };
+  animalState.sidePlayerIds ||= { red: null, blue: null };
 }
 
-function startAnimalGame() {
-  const blocked = animalRoomApi.requireHost();
-  if (blocked) {
-    animalState.message = blocked;
+/**
+ * 本地玩家控制的阵营（以服务器座位映射为准，不依赖 host/guest 角色）。
+ *
+ * @returns {"red"|"blue"|""} 阵营标识；不在座返回空串（只能观战）。
+ */
+function localSide() {
+  const myId = animalRoomApi ? animalRoomApi.getPlayerId() : "";
+  if (!myId) return "";
+  if (animalState.sidePlayerIds.red === myId) return "red";
+  if (animalState.sidePlayerIds.blue === myId) return "blue";
+  return "";
+}
+
+/**
+ * 阵营中文名。
+ *
+ * @param {string} side - 阵营标识。
+ * @returns {string} "红方" / "蓝方"。
+ */
+function sideLabel(side) {
+  return animalRules.sideLabel(side);
+}
+
+/**
+ * 该棋子现在是否允许本地下手（自己的棋子 + 自己的回合 + 对局进行中）。
+ *
+ * @param {object} piece - 棋子。
+ * @returns {boolean} true 表示可以选中。
+ */
+function canControl(piece) {
+  const side = localSide();
+  return Boolean(side) && piece.owner === side && animalState.turn === piece.owner && animalState.started && !animalState.over;
+}
+
+/** 查找某格棋子。
+ * @param {number} row - 行号。
+ * @param {number} col - 列号。
+ * @returns {object|null} 棋子或 null。
+ */
+function pieceAt(row, col) {
+  return animalRules.pieceAt(animalState.pieces, row, col);
+}
+
+/** 当前选中的棋子。
+ * @returns {object|null} 棋子或 null。
+ */
+function selectedPiece() {
+  return animalRules.pieceById(animalState.pieces, animalState.selectedId);
+}
+
+/** 清空选中态与提示高亮。 */
+function removeSelection() {
+  animalState.selectedId = "";
+  animalState.targets = [];
+}
+
+/**
+ * 棋盘格子点击：只产生意图，不修改权威状态。
+ *
+ * @param {number} row - 行号。
+ * @param {number} col - 列号。
+ */
+function handleCellClick(row, col) {
+  // 1. 未开局/已结束/不在座：不产生任何操作。
+  if (!animalState.started || animalState.over) return;
+  const piece = pieceAt(row, col);
+  const current = selectedPiece();
+
+  // 2. 点自己的棋子：本地做可走位置提示。
+  if (piece && canControl(piece)) {
+    animalState.selectedId = piece.id;
+    animalState.targets = animalRules.legalTargets(animalState.pieces, piece);
+    animalState.message = `${sideLabel(piece.owner)} 选中 ${piece.name}。`;
     renderAnimal();
     return;
   }
-  animalState.pieces = initialPieces();
-  animalState.turn = "red";
-  animalState.selectedId = "";
-  animalState.targets = [];
-  animalState.started = true;
-  animalState.over = false;
-  animalState.winner = "";
-  animalState.message = "红方先手。";
-  animalState.moves = [];
-  animalState.lastMove = null;
-  renderAnimal();
-  syncAnimal();
-}
 
-function syncAnimal() {
-  animalRoomApi.broadcast(animalState);
-}
-
-function inBounds(row, col) {
-  return row >= 0 && row < 9 && col >= 0 && col < 7;
-}
-
-function terrainAt(row, col) {
-  if ((row === 0 || row === 8) && col === 3) return row === 0 ? "blue-den" : "red-den";
-  if (
-    (row === 0 && [2, 4].includes(col)) ||
-    (row === 1 && [3].includes(col)) ||
-    (row === 7 && [3].includes(col)) ||
-    (row === 8 && [2, 4].includes(col))
-  ) {
-    return row < 4 ? "blue-trap" : "red-trap";
+  // 3. 没有选中或选中的不是自己能动的棋子：忽略。
+  if (!current || !canControl(current)) return;
+  // 4. 点击非高亮格：清掉选中，避免"点了没反应"的困惑。
+  const target = animalState.targets.find((item) => item.row === row && item.col === col);
+  if (!target) {
+    removeSelection();
+    renderAnimal();
+    return;
   }
-  if (row >= 3 && row <= 5 && [1, 2, 4, 5].includes(col)) return "river";
-  return "land";
+  // 5. 发送走子意图：服务器校验通过后回推新快照，本地的棋盘由快照覆盖。
+  const from = { row: current.row, col: current.col };
+  animalState.message = `正在请求 ${sideLabel(current.owner)} 的 ${current.name} 走子…`;
+  renderAnimal();
+  animalRoomApi.sendMove(from, target).catch(() => {
+    // 服务器拒绝时会经 onError 写入 message，这里只需重绘。
+    renderAnimal();
+  });
 }
 
-function pieceAt(row, col) {
-  return animalState.pieces.find((item) => item.alive && item.row === row && item.col === col);
+/** 统计某阵营存活棋子数。
+ * @param {string} side - 阵营标识。
+ * @returns {number} 存活数量。
+ */
+function aliveCount(side) {
+  return animalRules.aliveCount(animalState.pieces, side);
 }
 
+/**
+ * 地形对应的 CSS 类名。
+ *
+ * @param {number} row - 行号。
+ * @param {number} col - 列号。
+ * @returns {string} CSS 类名（无特殊地形时为空串）。
+ */
 function terrainClass(row, col) {
-  const terrain = terrainAt(row, col);
+  const terrain = animalRules.terrainAt(row, col);
   if (terrain === "blue-den") return "den-blue";
   if (terrain === "red-den") return "den-red";
   if (terrain === "river") return "river";
@@ -151,179 +232,46 @@ function terrainClass(row, col) {
   return "";
 }
 
-function isOwnDen(owner, row, col) {
-  return terrainAt(row, col) === `${owner}-den`;
-}
-
-function isTrapFor(attackerOwner, row, col) {
-  return terrainAt(row, col) === `${attackerOwner === "red" ? "blue" : "red"}-trap`;
-}
-
-function aliveCount(owner) {
-  return animalState.pieces.filter((item) => item.alive && item.owner === owner).length;
-}
-
-function localSide() {
-  return animalRoomApi.isGuest() ? "blue" : "red";
-}
-
-function sideLabel(side) {
-  return side === "red" ? "红方" : "蓝方";
-}
-
-function canControl(piece) {
-  return piece.owner === localSide() && animalState.turn === piece.owner;
-}
-
-function canCapture(attacker, defender, row, col) {
-  if (attacker.owner === defender.owner) return false;
-  if (attacker.name === "鼠" && defender.name === "象") return true;
-  if (attacker.name === "象" && defender.name === "鼠") return false;
-  const effectiveRank = isTrapFor(attacker.owner, row, col) ? 0 : defender.rank;
-  return attacker.rank >= effectiveRank;
-}
-
-function stepTarget(piece, dr, dc) {
-  const row = piece.row + dr;
-  const col = piece.col + dc;
-  if (!inBounds(row, col)) return null;
-  if (isOwnDen(piece.owner, row, col)) return null;
-  const terrain = terrainAt(row, col);
-  if (terrain === "river" && piece.name !== "鼠") return null;
-  const occupant = pieceAt(row, col);
-  if (!occupant) return { row, col };
-  if (!canCapture(piece, occupant, row, col)) return null;
-  return { row, col };
-}
-
-function jumpTarget(piece, dr, dc) {
-  if (!["虎", "狮"].includes(piece.name)) return null;
-  let row = piece.row + dr;
-  let col = piece.col + dc;
-  if (!inBounds(row, col) || terrainAt(row, col) !== "river") return null;
-  while (inBounds(row, col) && terrainAt(row, col) === "river") {
-    if (pieceAt(row, col)?.name === "鼠") return null;
-    row += dr;
-    col += dc;
-  }
-  if (!inBounds(row, col)) return null;
-  if (isOwnDen(piece.owner, row, col)) return null;
-  const occupant = pieceAt(row, col);
-  if (!occupant) return { row, col };
-  if (!canCapture(piece, occupant, row, col)) return null;
-  return { row, col };
-}
-
-function legalTargets(piece) {
-  const result = [];
-  const dirs = [
-    [-1, 0],
-    [1, 0],
-    [0, -1],
-    [0, 1],
-  ];
-  dirs.forEach(([dr, dc]) => {
-    const next = stepTarget(piece, dr, dc);
-    if (next) result.push(next);
-    const jump = jumpTarget(piece, dr, dc);
-    if (jump) result.push(jump);
-  });
-  return result.filter((item, index, list) => list.findIndex((other) => other.row === item.row && other.col === item.col) === index);
-}
-
-function selectedPiece() {
-  return animalState.pieces.find((item) => item.id === animalState.selectedId && item.alive) || null;
-}
-
-function removeSelection() {
-  animalState.selectedId = "";
-  animalState.targets = [];
-}
-
-function movePiece(piece, row, col) {
-  const targetPiece = pieceAt(row, col);
-  if (targetPiece) targetPiece.alive = false;
-  const from = { row: piece.row, col: piece.col };
-  piece.row = row;
-  piece.col = col;
-  animalState.lastMove = { id: piece.id, owner: piece.owner, from, to: { row, col } };
-  animalState.moves = [...animalState.moves.slice(-11), { owner: piece.owner, name: piece.name, from, to: { row, col }, capture: targetPiece?.name || "" }];
-  if (terrainAt(row, col) === `${piece.owner === "red" ? "blue" : "red"}-den`) {
-    animalState.over = true;
-    animalState.winner = piece.owner;
-    animalState.message = `${sideLabel(piece.owner)} 进入兽穴，直接获胜。`;
-    removeSelection();
-    return;
-  }
-  const opponent = piece.owner === "red" ? "blue" : "red";
-  if (aliveCount(opponent) === 0) {
-    animalState.over = true;
-    animalState.winner = piece.owner;
-    animalState.message = `${sideLabel(piece.owner)} 吃光了对手全部棋子。`;
-    removeSelection();
-    return;
-  }
-  animalState.turn = opponent;
-  animalState.message = `${sideLabel(piece.owner)} 的 ${piece.name} ${coordText(from.row, from.col)} -> ${coordText(row, col)}${targetPiece ? `，吃掉 ${targetPiece.name}` : ""}。`;
-  removeSelection();
-}
-
-function coordText(row, col) {
-  return `${String.fromCharCode(65 + row)}${col + 1}`;
-}
-
-function handleCellClick(row, col) {
-  if (!animalState.started || animalState.over) return;
-  const piece = pieceAt(row, col);
-  const current = selectedPiece();
-
-  if (piece && canControl(piece)) {
-    animalState.selectedId = piece.id;
-    animalState.targets = legalTargets(piece);
-    animalState.message = `${sideLabel(piece.owner)} 选中 ${piece.name}。`;
-    renderAnimal();
-    syncAnimal();
-    return;
-  }
-
-  if (!current || !canControl(current)) return;
-  const target = animalState.targets.find((item) => item.row === row && item.col === col);
-  if (!target) return;
-  movePiece(current, target.row, target.col);
-  renderAnimal();
-  syncAnimal();
-}
-
+/** 渲染棋盘与状态。 */
 function renderAnimal() {
   ensureStateShape();
   const redCount = aliveCount("red");
   const blueCount = aliveCount("blue");
+  const mySide = localSide();
+
+  // 1. 顶部状态文案。
   animalTurn.textContent = animalState.over
     ? `${sideLabel(animalState.winner)} 胜利`
     : animalState.started
       ? `${sideLabel(animalState.turn)} 回合`
       : "等待开局";
-  animalSideBadge.textContent = animalState.over ? "对局结束" : `轮到${sideLabel(animalState.turn)}`;
+  animalSideBadge.textContent = animalState.over
+    ? "对局结束"
+    : mySide
+      ? `你执${sideLabel(mySide)} · 轮到${sideLabel(animalState.turn)}`
+      : `轮到${sideLabel(animalState.turn)}`;
   animalCountBadge.textContent = `子力：红 ${redCount} / 蓝 ${blueCount}`;
   animalLog.textContent = animalState.message;
   if (animalState.room?.roomId) {
-    animalRoomBadge.textContent = `房间：${animalState.room.roomId}`;
+    animalRoomBadge.textContent = `房间：${animalState.room.roomId} · ${animalState.room.members?.length || 0} 人`;
   } else {
     animalRoomBadge.textContent = "房间：未进入";
   }
 
+  // 2. 棋盘逐格重建（9x7=63 格，重建成本可忽略且不会出现脏状态）。
   animalBoard.innerHTML = "";
-  for (let row = 0; row < 9; row += 1) {
-    for (let col = 0; col < 7; col += 1) {
+  for (let row = 0; row < animalRules.ROWS; row += 1) {
+    for (let col = 0; col < animalRules.COLS; col += 1) {
       const cell = document.createElement("button");
       cell.type = "button";
       cell.className = `animal-cell ${terrainClass(row, col)}`.trim();
-      const terrain = terrainAt(row, col);
+      cell.dataset.row = String(row);
+      cell.dataset.col = String(col);
+      const terrain = animalRules.terrainAt(row, col);
       if (terrain !== "land") {
         const label = document.createElement("span");
         label.className = "cell-label";
-        label.textContent =
-          terrain === "river" ? "河" : terrain === "red-den" ? "穴" : terrain === "blue-den" ? "穴" : "阱";
+        label.textContent = terrain === "river" ? "河" : terrain.includes("den") ? "穴" : "阱";
         cell.appendChild(label);
       }
       if (animalState.targets.some((item) => item.row === row && item.col === col)) cell.classList.add("target");
@@ -344,10 +292,17 @@ function renderAnimal() {
   }
 }
 
+/**
+ * 导出给自动化测试读取的权威状态文本。
+ *
+ * @returns {string} JSON 字符串。
+ */
 function renderStateText() {
   return JSON.stringify({
     origin: "top-left",
-    board: { rows: 9, cols: 7 },
+    board: { rows: animalRules.ROWS, cols: animalRules.COLS },
+    gameType: "animal-chess",
+    transportKind: "server-ws",
     started: animalState.started,
     turn: animalState.turn,
     selectedId: animalState.selectedId,
@@ -369,7 +324,16 @@ function renderStateText() {
         row: item.row,
         col: item.col,
       })),
+    mySide: localSide(),
+    sidePlayerIds: animalState.sidePlayerIds,
+    players: animalState.players,
+    members: animalState.room?.members || [],
     room: animalState.room ? { roomId: animalState.room.roomId, role: animalState.room.role } : null,
+    playerId: animalRoomApi?.getPlayerId?.() || "",
+    serverConnected: animalRoomApi?.isOnline?.() || false,
+    peerCount: animalRoomApi?.connectionCount?.() || 0,
+    memberCount: animalState.room?.members?.length || 0,
+    connectionStatus: document.querySelector("#roomStatus")?.textContent || "",
     moves: animalState.moves,
   });
 }

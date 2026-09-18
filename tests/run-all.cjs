@@ -21,11 +21,17 @@ const BASE_URL = `http://127.0.0.1:${APP_PORT}`;
 /** 待执行用例：文件路径 + 说明。 */
 const SUITES = [
   { file: "tests/server-protocol.cjs", label: "服务端协议（WS 直连）" },
+  { file: "tests/room-sync.cjs", label: "房间成员实时同步回归（双客户端）" },
+  { file: "tests/animal-chess-rules.cjs", label: "斗兽棋规则单元测试" },
+  { file: "tests/grid-rules.cjs", label: "棋类规则单元测试（井字棋/黑白棋/四子棋/五子棋引擎）" },
+  { file: "tests/grid-authority.cjs", label: "棋类权威房间 WS 联机测试（伪造状态被拒）" },
+  { file: "tests/animal-chess-dual.cjs", label: "斗兽棋服务器权威双客户端验收" },
   { file: "tests/lobby-smoke.cjs", label: "大厅 → 五子棋导航" },
   { file: "tests/gomoku-smoke.cjs", label: "五子棋冒烟（联机 + 本地）" },
-  { file: "tests/games-smoke.cjs", label: "七款联机游戏建房" },
+  { file: "tests/games-smoke.cjs", label: "联机游戏建房（relay 六款 + 斗兽棋权威房）" },
   { file: "tests/grid-games-smoke.cjs", label: "棋盘类游戏本地规则" },
   { file: "tests/gomoku-dual.cjs", label: "五子棋双端联机验收" },
+  { file: "tests/grid-dual.cjs", label: "棋类游戏双浏览器联机验收（井字棋/四子棋/黑白棋）" },
 ];
 
 /** 被测服务器进程。 */

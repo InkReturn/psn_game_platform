@@ -69,27 +69,28 @@ class RelayRoom extends RoomBase {
    * @param {string} reason - 移除原因。
    */
   onPlayerRemoved(player, reason) {
-    // 1. 广播离开事件，附带最新成员快照，便于客户端更新成员列表。
-    this.broadcast(
-      makeMessage("room.player_left", {
-        playerId: player.playerId,
-        nickname: player.nickname,
-        reason,
-        snapshot: { room: this.describe() },
-      }),
-    );
+    // 1. 事件 + 最新权威快照一起广播，客户端直接覆盖成员列表。
+    this.broadcastEventWithSnapshot("room.player_left", {
+      playerId: player.playerId,
+      nickname: player.nickname,
+      reason,
+    });
   }
 
   /**
-   * 玩家断线通知。
+   * 玩家断线通知：附带最新快照，让在线玩家立刻看到"对方掉线中"。
+   *
+   * 注意这里不排除断线者本人：它的连接可能已经不可用（send 会被 conn 内部丢弃），
+   * 但如果连接仍可用（例如双连接场景），让它也看到同一份权威状态更安全。
    *
    * @param {object} player - 断线玩家。
    */
   onPlayerDisconnected(player) {
-    this.broadcast(
-      makeMessage("room.player_disconnected", { playerId: player.playerId, nickname: player.nickname, snapshot: { room: this.describe() } }),
-      player.playerId,
-    );
+    this.broadcastEventWithSnapshot("room.player_disconnected", {
+      playerId: player.playerId,
+      nickname: player.nickname,
+      connected: false,
+    });
   }
 }
 

@@ -9,10 +9,14 @@
 (function () {
   "use strict";
 
-  const ROOM_VERSION = 3;
+  const ROOM_VERSION = 4;
   const ROOM_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
   /** 本地保存的房间凭据（playerId + reconnectToken），刷新后用于恢复身份。 */
   const STORAGE_PREFIX = "linkplay-room-";
+  /** 服务器房间快照消息类型（成员/座位变化统一入口）。 */
+  const ROOM_SNAPSHOT_TYPE = "room.snapshot";
+  /** 兼容保留的增量成员事件。 */
+  const MEMBER_EVENT_TYPES = ["room.player_joined", "room.player_reconnected", "room.player_left", "room.player_disconnected"];
 
   /** 生成随机房间码前缀段（服务器才是最终分配者，这里仅备选输入）。
    * @param {string} prefix - 游戏 2 字母前缀。
@@ -62,6 +66,36 @@
     const joinBtn = document.querySelector("#joinBtn");
     const copyBtn = document.querySelector("#copyBtn");
     const leaveBtn = document.querySelector("#leaveRoomBtn");
+    const panelUtils = window.LinkPlayRoomPanel;
+    /** 房间成员列表容器：页面没写就自动补一个，避免 10 个游戏页各改一遍 HTML。 */
+    const memberList = ensureMemberList();
+
+    /**
+     * 取得（必要时创建）成员列表容器。
+     *
+     * @returns {HTMLElement|null} <ul id="roomMemberList">；找不到房间面板时返回 null。
+     */
+    function ensureMemberList() {
+      // 1. 页面已显式提供容器：直接用。
+      const existing = document.querySelector("#roomMemberList");
+      if (existing) return existing;
+      // 2. 否则在房间面板（#roomStatus 所在 section）里补一个成员区。
+      const anchor = roomStatus ? roomStatus.closest("section") : null;
+      if (!anchor) return null;
+      const box = document.createElement("div");
+      box.className = "member-box";
+      const title = document.createElement("span");
+      title.className = "member-title";
+      title.textContent = "房间成员";
+      const list = document.createElement("ul");
+      list.id = "roomMemberList";
+      list.className = "member-list";
+      list.setAttribute("aria-label", "房间成员列表");
+      box.appendChild(title);
+      box.appendChild(list);
+      anchor.appendChild(box);
+      return list;
+    }
 
     const state = {
       roomId: "",
@@ -171,20 +205,22 @@
       shareInput.value = url.toString();
     }
 
-    /** 房间状态文案。 */
+    /** 房间状态文案（由权威快照推导：在线人数决定是否还在"等待"）。 */
     function roomLabel() {
-      if (!state.roomId) return "未进入房间";
-      if (state.online === "error") return "连接断开，重试中";
-      if (state.online === "connecting") return "连接中";
-      if (state.online === "reconnecting") return "恢复身份中";
-      if (state.online === "online") {
-        return state.role === "host" ? `房主 ${connectionCount()} 人` : "已加入";
-      }
-      return "已进入";
+      const members = Object.values(state.members);
+      if (!panelUtils) return state.roomId ? "已进入" : "未进入房间";
+      return panelUtils.roomStatusText({
+        roomId: state.roomId,
+        online: state.online,
+        playerCount: members.length,
+        onlineCount: members.filter((m) => m.connected).length,
+        isHost: state.role === "host",
+      });
     }
 
     /** 刷新房间状态展示并通知游戏层。 */
     function updateStatus() {
+      const members = Object.values(state.members);
       if (roomStatus) {
         roomStatus.textContent = roomLabel();
         roomStatus.style.color = state.roomId && state.online === "online" ? "var(--accent)" : "var(--warn)";
@@ -192,13 +228,15 @@
       if (roomInput) roomInput.value = state.roomId;
       updateShareLink();
       setButtonsInRoom(Boolean(state.roomId));
+      // 1. 成员列表每次状态变化都重绘（数据来自服务器快照，本地只读）。
+      if (panelUtils) panelUtils.renderMembers(memberList, members, state.playerId);
       onRoomChange?.({
         ...state,
-        members: Object.values(state.members),
+        members,
       });
       window.dispatchEvent(
         new CustomEvent("linkplay-room-change", {
-          detail: { ...state, members: Object.values(state.members) },
+          detail: { ...state, members },
         }),
       );
     }
@@ -225,16 +263,25 @@
      * @param {object} roomInfo - room.describe() 结果。
      */
     function syncMembers(roomInfo) {
-      if (!roomInfo || !Array.isArray(roomInfo.players)) return;
+      if (!panelUtils || !roomInfo) return;
+      const members = panelUtils.normalizeMembers(roomInfo);
       state.members = {};
-      roomInfo.players.forEach((p) => {
-        state.members[p.playerId] = {
-          id: p.playerId,
-          role: p.role,
-          name: p.nickname,
-          connected: p.connected,
-        };
+      members.forEach((m) => {
+        state.members[m.id] = m;
       });
+    }
+
+    /**
+     * 用服务器权威快照刷新本地镜像（房间同步的唯一收敛点）。
+     *
+     * @param {object} snapshot - {room, game?} 服务器快照。
+     * @returns {boolean} 是否应用了房间部分。
+     */
+    function applySnapshot(snapshot) {
+      if (!snapshot || !snapshot.room) return false;
+      syncMembers(snapshot.room);
+      state.online = "online";
+      return true;
     }
 
     /**
@@ -246,11 +293,18 @@
       const { type, payload } = message;
       if (state.roomId && payload?.snapshot?.room?.roomId && payload.snapshot.room.roomId !== state.roomId) return;
 
-      // 1. 成员变化事件：刷新成员表并通知游戏层。
-      if (type === "room.player_joined" || type === "room.player_reconnected" || type === "room.player_left" || type === "room.player_disconnected") {
-        syncMembers(payload.snapshot?.room);
+      // 1. 统一房间快照：成员变化一到达就刷新成员表并渲染。
+      if (type === ROOM_SNAPSHOT_TYPE) {
+        applySnapshot(payload.snapshot);
+        updateStatus();
+        return;
+      }
+
+      // 2. 兼容增量成员事件（服务端新版本统一发 room.snapshot，这里保留兜底）。
+      if (MEMBER_EVENT_TYPES.includes(type)) {
+        applySnapshot(payload.snapshot);
         if (type === "room.player_joined" && state.role === "host") {
-          // 1.1 房主向新成员补发快照。
+          // 2.1 房主向新成员补发快照。
           publishSnapshot();
         }
         if (type === "room.player_left" && payload.playerId === state.playerId) {
@@ -261,7 +315,7 @@
         return;
       }
 
-      // 2. relay 业务消息。
+      // 3. relay 业务消息。
       if (type === "relay.message") {
         if (!payload || payload.senderId === state.playerId) return;
         touchRoomActivity();
@@ -351,7 +405,7 @@
         });
         state.role = res.payload.role || state.role;
         state.online = "online";
-        syncMembers(res.payload.snapshot?.room);
+        applySnapshot(res.payload.snapshot);
         updateStatus();
         await sendRelay({ event: "request-sync" });
       } catch (err) {
@@ -360,7 +414,8 @@
           clearRoomState(err.code === "ROOM_NOT_FOUND" ? "房间已过期" : "身份失效，请重新加入");
           return;
         }
-        state.online = "error";
+        // 2. ALREADY_IN_ROOM 表示旧连接尚未被服务器回收，等下一次自动重连重试即可。
+        state.online = err?.code === "ALREADY_IN_ROOM" ? "connecting" : "error";
         updateStatus();
       } finally {
         // 1. 无论成败都释放在途标记，允许后续（真正的）断线重连再次发起。
@@ -388,7 +443,7 @@
         state.role = res.payload.role || "host";
         state.online = "online";
         storeCredentials(res.payload);
-        syncMembers(res.payload.snapshot?.room);
+        applySnapshot(res.payload.snapshot);
         const url = new URL(window.location.href);
         url.searchParams.set("room", state.roomId);
         history.replaceState(null, "", url);
@@ -423,7 +478,7 @@
         state.role = res.payload.role || "guest";
         state.online = "online";
         storeCredentials(res.payload);
-        syncMembers(res.payload.snapshot?.room);
+        applySnapshot(res.payload.snapshot);
         const url = new URL(window.location.href);
         url.searchParams.set("room", state.roomId);
         history.replaceState(null, "", url);

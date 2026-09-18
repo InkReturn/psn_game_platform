@@ -24,6 +24,8 @@ const ErrorCodes = Object.freeze({
   NOT_YOUR_TURN: "NOT_YOUR_TURN", // 当前不是该玩家的回合
   CELL_OCCUPIED: "CELL_OCCUPIED", // 目标交叉点已有棋子
   INVALID_MOVE: "INVALID_MOVE", // 坐标越界或类型错误
+  NOT_YOUR_PIECE: "NOT_YOUR_PIECE", // 起点不是该玩家自己的棋子
+  ILLEGAL_MOVE_TARGET: "ILLEGAL_MOVE_TARGET", // 目标格不符合该棋子的走法规则
   GAME_ALREADY_FINISHED: "GAME_ALREADY_FINISHED", // 对局已结束
   INTERNAL_ERROR: "INTERNAL_ERROR", // 服务端内部错误
 });

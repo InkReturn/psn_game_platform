@@ -8,6 +8,7 @@
 
 const crypto = require("crypto");
 const { DISCONNECT_GRACE_MS, RECONNECT_TOKEN_BYTES } = require("../config");
+const { makeMessage } = require("../protocol/messages");
 
 /** 生成重连令牌。
  * @returns {string} base64url 随机串，用于断线后校验玩家身份。
@@ -44,17 +45,22 @@ class RoomBase {
 
   /** 生成并登记一个玩家对象（不绑定连接）。
    * @param {string} nickname - 玩家昵称（已校验长度）。
+   * @param {{host?: boolean}} [options] - host 为 true 时标记为房主（房间创建者）。
    * @returns {object} player 对象。
    */
-  createPlayer(nickname) {
+  createPlayer(nickname, options = {}) {
     const player = {
       playerId: createPlayerId(),
       nickname,
       reconnectToken: createReconnectToken(),
       conn: null,
+      /** 被本次绑定顶替的旧连接（用于忽略迟到的 close 事件）。 */
+      previousConn: null,
       connected: false,
       disconnectedAt: null,
       joinedAt: Date.now(),
+      /** 房主标记：独立于座位角色，换先后不变。 */
+      host: Boolean(options.host),
     };
     this.players.set(player.playerId, player);
     this.touch();
@@ -75,12 +81,31 @@ class RoomBase {
       clearTimeout(timer);
       this._graceTimers.delete(playerId);
     }
-    // 2. 绑定连接并更新状态。
+    // 2. 记录被顶替的旧连接：同一玩家在新连接上重连时，旧 socket 的 close 事件
+    //    可能晚于本次绑定到达，若不记账会让 onDisconnect 把在线玩家误标为断线。
+    player.previousConn = player.conn && player.conn !== conn ? player.conn : null;
+    // 3. 绑定连接并更新状态。
     player.conn = conn;
     player.connected = true;
     player.disconnectedAt = null;
     this.touch();
     return true;
+  }
+
+  /**
+   * 玩家断线回调的凭证校验。
+   *
+   * 同一玩家可能存在两条 socket（刷新/切网络时旧连接尚未关闭）：只有仍然是
+   * "当前绑定连接"的那条才允许把玩家标记为断线，被顶替的旧连接直接忽略。
+   *
+   * @param {string} playerId - 玩家 id。
+   * @param {object} conn - 触发断线的连接封装。
+   * @returns {boolean} true 表示该连接确实是当前连接，可以继续断线流程。
+   */
+  isCurrentConn(playerId, conn) {
+    const player = this.players.get(playerId);
+    if (!player) return false;
+    return player.conn === conn;
   }
 
   /** 玩家断线：保留座位进入宽限期，超时后移除。
@@ -163,7 +188,9 @@ class RoomBase {
     this.updatedAt = Date.now();
   }
 
-  /** 向房间内所有在线玩家广播消息。
+  /**
+   * 向房间内所有在线玩家广播消息。
+   *
    * @param {object} message - 已封装的信封消息。
    * @param {string} [exceptPlayerId] - 排除的玩家 id。
    */
@@ -173,6 +200,49 @@ class RoomBase {
       if (exceptPlayerId && player.playerId === exceptPlayerId) continue;
       player.conn.send(message);
     }
+  }
+
+  /**
+   * 权威房间状态推送（房间同步的唯一出口）。
+   *
+   * 任何会影响房间成员/座位的状态变化（加入、离开、断线、重连、对局开始/结束、
+   * 重新开局）都必须走本方法：服务端更新完权威状态后，立即把同一份快照
+   * `room.snapshot` 发给房间内所有在线连接（含触发者本人）。
+   *
+   * 为什么不能只依赖 room.player_joined 这类增量事件：
+   * - 增量事件要求客户端自己推断"我该不该刷新"，一旦某个分支漏掉，UI 就会停在旧状态；
+   * - 全量快照让客户端渲染层只做一件事——用最新快照覆盖本地只读镜像。
+   *
+   * @param {object} [context] - 事件语义，会放进 payload 并与快照一起下发。
+   *   event: "player_joined" | "player_left" | "player_disconnected" | "player_reconnected"
+   *          | "game_started" | "game_finished" | "game_restarted" | "room_created"
+   *   其余字段原样透传（playerId / nickname / role 等，便于客户端做提示文案）。
+   * @returns {object} 已广播的信封，便于调用方（测试）断言。
+   */
+  broadcastSnapshot(context) {
+    const envelope = makeMessage("room.snapshot", { ...(context || {}), snapshot: this.snapshot() });
+    this.broadcast(envelope);
+    return envelope;
+  }
+
+  /**
+   * 广播"事件 + 权威快照"两条消息。
+   *
+   * 统一房间同步原则：只要服务端权威 Room State 发生变化，就必须主动向房间内
+   * 所有连接发送最新状态。本方法同时下发
+   *   1. 具体事件（room.player_left / room.player_disconnected / ...），保留给需要
+   *      "事件语义"的客户端分支（例如判断"离开的是不是我自己"）；
+   *   2. room.snapshot 全量快照，作为客户端渲染的唯一权威数据源。
+   * 两条消息都是幂等的状态覆盖，重复应用不会产生任何副作用。
+   *
+   * @param {string} type - 事件消息类型。
+   * @param {object} payload - 事件负载（会自动补上最新 snapshot）。
+   * @returns {object} 实际下发的 room.snapshot 信封。
+   */
+  broadcastEventWithSnapshot(type, payload) {
+    const merged = { ...(payload || {}), snapshot: this.snapshot() };
+    this.broadcast(makeMessage(type, merged));
+    return this.broadcastSnapshot(payload);
   }
 
   /**
@@ -198,10 +268,13 @@ class RoomBase {
       status: this.status,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
+      maxPlayers: this.maxPlayers,
       players: [...this.players.values()].map((p) => ({
         playerId: p.playerId,
         nickname: p.nickname,
         role: p.role || "member",
+        /** 房主标记独立于座位角色：换先后 role 会互换，host 不会。 */
+        host: Boolean(p.host),
         connected: p.connected,
       })),
     };

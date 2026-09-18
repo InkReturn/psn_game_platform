@@ -105,7 +105,19 @@ roomApi = window.initGomokuPanel({
     //    权威快照（含 seatPlayerIds）先于本回调到达，此处必须重新推导，
     //    否则角色停留在 spectator，房主/访客都无法点击棋盘落子。
     syncRoleFromSeat();
-    setStatus(room.online === "online" ? (room.role === "host" ? "房间已创建，等待加入" : "已加入") : "连接中", room.online === "online");
+    // 2. 状态文案完全由"房间成员 + 连接状态"推导：
+    //    绝不能在对手已经进房后还显示"等待加入"。
+    const members = Array.isArray(room.members) ? room.members : [];
+    const onlineCount = members.filter((m) => m.connected).length;
+    if (room.online !== "online") {
+      setStatus(room.online === "connecting" ? "连接中" : "连接断开，重连中", false);
+    } else if (onlineCount >= 2) {
+      setStatus("对局进行中", true);
+    } else if (members.length > 1) {
+      setStatus("对手掉线中", false);
+    } else {
+      setStatus(room.role === "host" ? "房间已创建，等待加入" : "已加入", true);
+    }
     updateRoomControls();
     render();
   },

@@ -49,12 +49,10 @@ async function createRoomAndWait(page) {
   await page.click("#startCheckersBtn");
   const checkersState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
+  // 斗兽棋已改为服务器权威房：单人建房只会停在"等待对手"，不再有本地开局按钮。
+  // 完整的双人对局（走子/吃子/跳河/胜负/刷新恢复）由 tests/animal-chess-dual.cjs 覆盖。
   await page.goto(`${baseUrl}/animal-chess.html`, { waitUntil: "networkidle" });
   await createRoomAndWait(page);
-  await page.click("#startAnimalBtn");
-  await page.click(".animal-cell:nth-child(43)");
-  const animalSelectedState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
-  await page.click(".animal-cell:nth-child(36)");
   const animalState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   await page.goto(`${baseUrl}/texas.html`, { waitUntil: "networkidle" });
@@ -92,15 +90,15 @@ async function createRoomAndWait(page) {
   await page.screenshot({ path: "outputs/games-smoke.png", fullPage: true });
   await browser.close();
 
-  console.log(JSON.stringify({ monopolyState, ludoState, checkersState, animalSelectedState, animalState, texasState, blackjackState, landlordState, addRobotDisabled, errors }, null, 2));
+  console.log(JSON.stringify({ monopolyState, ludoState, checkersState, animalState, texasState, blackjackState, landlordState, addRobotDisabled, errors }, null, 2));
 
   if (errors.length) process.exit(1);
   if (monopolyState.players.length !== 4 || !monopolyState.started || !monopolyState.room?.roomId) process.exit(1);
   if (ludoState.teams.length !== 4 || !ludoState.started || !ludoState.room?.roomId) process.exit(1);
   if (checkersState.players.length !== 6 || !checkersState.started || !checkersState.room?.roomId) process.exit(1);
-  if (animalSelectedState.targets.length < 1) process.exit(1);
-  if (animalState.pieces.length !== 16 || !animalState.started || !animalState.room?.roomId) process.exit(1);
-  if (animalState.turn !== "blue" || animalState.lastMove?.to?.row !== 5 || animalState.lastMove?.to?.col !== 0) process.exit(1);
+  // 斗兽棋权威房：单人建房应有 16 子、未开局、已进房，且我方执红。
+  if (animalState.pieces.length !== 16 || animalState.started || !animalState.room?.roomId) process.exit(1);
+  if (animalState.mySide !== "red" || animalState.turn !== "red") process.exit(1);
   if (texasState.seats.length < 2 || !texasState.started || !texasState.room?.roomId) process.exit(1);
   if (!["preflop", "flop", "turn", "river", "showdown"].includes(texasState.phase)) process.exit(1);
   if (blackjackState.seats.length < 2 || !blackjackState.started || !blackjackState.room?.roomId) process.exit(1);

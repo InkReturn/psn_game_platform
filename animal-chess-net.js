@@ -1,21 +1,22 @@
 /**
- * 五子棋服务器权威联机面板（浏览器端）。
+ * 斗兽棋服务器权威联机面板（浏览器端）。
  *
- * 负责五子棋页面的房间 UI（昵称/创建/加入/退出/邀请链接/成员列表）与服务器连接、
- * 身份凭据保存、断线恢复；对局操作通过 sendAction 发送意图，
- * 权威状态经 game.updated / room.snapshot 快照回推，由 gomoku-app.js 渲染。
+ * 与 gomoku-net.js 同构：负责房间 UI（昵称/创建/加入/退出/邀请链接/成员列表）、
+ * 服务器连接、身份凭据保存与断线恢复。对局操作通过 sendAction 发送意图
+ * （from/to 坐标），权威状态经 game.updated / room.snapshot 快照回推，
+ * 由 animal-chess.js 渲染。
  *
  * 房间同步约定：任何成员变化都由服务器广播 room.snapshot 全量快照，
- * 本面板只做"用最新快照覆盖本地镜像 + 立刻 render"，不做任何按事件类型分支的推断。
+ * 本面板只做"用最新快照覆盖本地镜像 + 立刻 render"，不按事件类型分支推断。
  */
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "linkplay-room-gomoku-v3";
-  const GAME_TYPE = "gomoku";
+  const STORAGE_KEY = "linkplay-room-animal-chess-v1";
+  const GAME_TYPE = "animal-chess";
   /** 服务器房间快照消息类型（成员/座位/对局状态变化统一走它）。 */
   const ROOM_SNAPSHOT_TYPE = "room.snapshot";
-  /** 兼容保留的增量成员事件：收到时同样按最新快照刷新（不依赖单一事件源）。 */
+  /** 兼容保留的增量成员事件。 */
   const MEMBER_EVENT_TYPES = ["room.player_joined", "room.player_reconnected", "room.player_left", "room.player_disconnected"];
 
   /** 规范化房间码输入。
@@ -27,7 +28,7 @@
   }
 
   /**
-   * 初始化五子棋联机面板。
+   * 初始化斗兽棋联机面板。
    *
    * @param {object} [handlers]
    * @param {Function} [handlers.onRoomChange] - 房间状态变化（含 members）。
@@ -35,9 +36,9 @@
    * @param {Function} [handlers.onError] - 服务器拒绝操作（中文文案）。
    * @returns {object} 面板 API。
    */
-  window.initGomokuPanel = function initGomokuPanel(handlers) {
+  window.initAnimalChessPanel = function initAnimalChessPanel(handlers) {
     const { onRoomChange, onGameUpdate, onError } = handlers || {};
-    const roomStatus = document.querySelector("#connectionStatus");
+    const roomStatus = document.querySelector("#roomStatus");
     const nicknameInput = document.querySelector("#nicknameInput");
     const roomInput = document.querySelector("#roomInput");
     const shareInput = document.querySelector("#shareInput");
@@ -55,7 +56,7 @@
       online: "idle",
       members: {},
       playerId: "",
-      /** 服务器对局是否已开始（决定状态栏是"等待加入"还是"对局进行中"）。 */
+      /** 服务器对局是否已开始（决定状态栏文案）。 */
       gameReady: false,
     };
 
@@ -99,19 +100,18 @@
       shareInput.value = url.toString();
     }
 
-    /** 状态栏文案（完全由权威快照推导，不再按 role 硬编码）。 */
+    /** 状态栏文案（完全由权威快照推导）。 */
     function statusLabel() {
       const members = Object.values(state.members);
-      return panelUtils
-        ? panelUtils.roomStatusText({
-            roomId: state.roomId,
-            online: state.online,
-            playerCount: members.length,
-            onlineCount: members.filter((m) => m.connected).length,
-            isHost: state.role === "host",
-            gameReady: state.gameReady,
-          })
-        : state.roomId;
+      if (!panelUtils) return state.roomId ? "已进入" : "未进入房间";
+      return panelUtils.roomStatusText({
+        roomId: state.roomId,
+        online: state.online,
+        playerCount: members.length,
+        onlineCount: members.filter((m) => m.connected).length,
+        isHost: state.role === "host",
+        gameReady: state.gameReady,
+      });
     }
 
     /** 刷新展示并通知游戏层。 */
@@ -148,13 +148,10 @@
     }
 
     /**
-     * 用服务器权威快照刷新本地镜像。
-     *
-     * 这是房间同步的唯一收敛点：成员表、对局是否开始、对局状态全部来自同一份快照，
-     * 避免"某个事件分支没处理"导致 UI 停在旧状态。
+     * 用服务器权威快照刷新本地镜像（房间同步唯一收敛点）。
      *
      * @param {object} snapshot - {room, game} 服务器快照。
-     * @returns {boolean} 是否成功应用了房间部分。
+     * @returns {boolean} 是否应用了房间部分。
      */
     function applySnapshot(snapshot) {
       if (!snapshot || !snapshot.room) return false;
@@ -166,22 +163,10 @@
           state.members[m.id] = m;
         });
       }
-      // 2. 对局状态：game.started 由服务器给出，用于状态栏文案。
-      if (snapshot.game) state.gameReady = Boolean(snapshot.game.started) || Boolean(snapshot.game.winner);
+      // 2. 对局状态：started/over 由服务器给出，用于状态栏文案。
+      if (snapshot.game) state.gameReady = Boolean(snapshot.game.started) || Boolean(snapshot.game.over);
       state.online = "online";
       return true;
-    }
-
-    /** 从服务器房间快照刷新成员表。
-     * @param {object} roomInfo - room.describe()。
-     */
-    function syncMembers(roomInfo) {
-      if (!panelUtils || !roomInfo) return;
-      const members = panelUtils.normalizeMembers(roomInfo);
-      state.members = {};
-      members.forEach((m) => {
-        state.members[m.id] = m;
-      });
     }
 
     /** 把 URL 换成带房间码的形式（刷新/分享可恢复）。 */
@@ -200,7 +185,7 @@
       const { type, payload } = message;
       if (payload?.snapshot?.room?.roomId && payload.snapshot.room.roomId !== state.roomId) return;
 
-      // 1. 统一房间快照：成员/座位/对局开始等状态变化一律走这里。
+      // 1. 统一房间快照：成员/座位/对局状态变化一律走这里。
       if (type === ROOM_SNAPSHOT_TYPE) {
         applySnapshot(payload.snapshot);
         if (payload.snapshot?.game) onGameUpdate?.(payload.snapshot);
@@ -208,7 +193,7 @@
         return;
       }
 
-      // 2. 权威对局快照：交给游戏层渲染。
+      // 2. 权威对局快照。
       if (type === "game.updated") {
         applySnapshot(payload.snapshot);
         onGameUpdate?.(payload.snapshot);
@@ -216,7 +201,7 @@
         return;
       }
 
-      // 3. 兼容增量成员事件（服务端在新版本里统一发 room.snapshot，这里保留兜底）。
+      // 3. 兼容增量成员事件（服务端新版本统一发 room.snapshot，这里保留兜底）。
       if (MEMBER_EVENT_TYPES.includes(type)) {
         applySnapshot(payload.snapshot);
         if (payload.snapshot?.game) onGameUpdate?.(payload.snapshot);
@@ -260,17 +245,13 @@
     /**
      * 断线后恢复身份（并发调用复用同一次请求）。
      *
-     * 注意：页面加载恢复与 onStatus("online") 回调会在同一次连线时各触发一次本函数，
-     * 若不去重，第二个 room.reconnect 会因"该连接已在房间"被服务器拒绝，
-     * 从而把状态误判成连接错误（表现为刷新后房间一直显示断开）。
-     *
-     * @param {boolean} silent - 静默模式（不额外提示用户）。
+     * @param {boolean} [silent] - 静默模式（不额外提示用户）。
      * @returns {Promise<void>} 重连流程结束后 resolve。
      */
     function tryReconnect(silent) {
       // 1. 无房间/无身份时无需恢复。
       if (!state.roomId || !state.playerId) return Promise.resolve();
-      // 2. 已有重连在途：复用同一个 Promise，避免并发重复请求。
+      // 2. 已有重连在途：复用同一个 Promise。
       if (reconnectInFlight) return reconnectInFlight;
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
       if (!saved?.reconnectToken) return Promise.resolve();
@@ -281,8 +262,8 @@
     /**
      * 真正执行一次身份恢复请求。
      *
-     * @param {object} saved - localStorage 中的凭据 {reconnectToken, ...}。
-     * @param {boolean} [silent] - 静默模式（失败时只标记错误，不弹提示）。
+     * @param {object} saved - localStorage 中的凭据。
+     * @param {boolean} [silent] - 静默模式。
      * @returns {Promise<void>} 完成后 resolve。
      */
     async function doReconnect(saved, silent) {
@@ -305,18 +286,17 @@
           clearRoomState(err.code === "ROOM_NOT_FOUND" ? "房间已过期" : "身份失效，请重新加入");
           return;
         }
-        // 1. ALREADY_IN_ROOM 表示旧连接还没被服务器回收：这不是身份失效，
-        //    等 net-client 下一次断线重连（onStatus("online")）再自动重试即可。
+        // 1. ALREADY_IN_ROOM 表示旧连接尚未被服务器回收，等下一次自动重连重试即可。
         state.online = err?.code === "ALREADY_IN_ROOM" ? "connecting" : "error";
         if (!silent) notifyError(err);
         updateStatus();
       } finally {
-        // 2. 无论成败都释放在途标记，允许后续（真正的）断线重连再次发起。
+        // 2. 释放在途标记，允许后续（真正的）断线重连再次发起。
         reconnectInFlight = null;
       }
     }
 
-    /** 创建房间（房主执黑先行）。 */
+    /** 创建房间（房主执红先行）。 */
     async function createRoom() {
       state.role = "host";
       state.nickname = nicknameInput?.value.trim() || `玩家${Math.floor(1000 + Math.random() * 9000)}`;
@@ -324,7 +304,7 @@
       updateStatus();
       try {
         await net.connect();
-        const res = await net.request("room.create", { gameType: GAME_TYPE, prefix: "WZ", nickname: state.nickname });
+        const res = await net.request("room.create", { gameType: GAME_TYPE, prefix: "DS", nickname: state.nickname });
         state.roomId = res.payload.roomId;
         state.playerId = res.payload.playerId;
         state.role = res.payload.role || "host";
@@ -382,10 +362,13 @@
     }
 
     /**
-     * 发送对局操作意图（落子/悔棋/认输/重开/再开一把）。
+     * 发送对局操作意图（走子 / 重开一局）。
      *
-     * @param {string} action - 动作名。
-     * @param {object} [params] - 动作参数（如 row/col/approved）。
+     * 客户端只发送"我想做什么"，不发送棋盘、winner 或 turn：
+     * 这些权威结果一律由服务器计算后经快照回推。
+     *
+     * @param {string} action - 动作名（move / restart / start）。
+     * @param {object} [params] - 动作参数（如 from/to）。
      * @returns {Promise<void>} 服务器拒绝时 reject（附中文文案）。
      */
     async function sendAction(action, params) {
@@ -396,6 +379,17 @@
         notifyError(err);
         throw err;
       }
+    }
+
+    /**
+     * 发送一步走子意图。
+     *
+     * @param {{row:number,col:number}} from - 起点坐标。
+     * @param {{row:number,col:number}} to - 终点坐标。
+     * @returns {Promise<void>} 服务器拒绝时 reject。
+     */
+    async function sendMove(from, to) {
+      return sendAction("move", { from: { row: from.row, col: from.col }, to: { row: to.row, col: to.col } });
     }
 
     hostBtn?.addEventListener("click", () => createRoom());
@@ -439,6 +433,7 @@
       state,
       leaveRoom,
       sendAction,
+      sendMove,
       isHost: () => state.role === "host",
       isGuest: () => state.role === "guest",
       hasRoom: () => Boolean(state.roomId),

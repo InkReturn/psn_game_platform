@@ -772,6 +772,98 @@ label {
   min-width: 62px;
 }
 
+/* ── 房间成员列表：服务器权威快照的渲染出口 ─────────────────── */
+.member-box {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.member-title {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.member-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+}
+
+.member-item[data-connected="false"] {
+  opacity: 0.72;
+}
+
+.member-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.member-dot.online {
+  background: var(--accent);
+}
+
+.member-dot.offline {
+  background: var(--warn);
+}
+
+.member-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.member-badge {
+  padding: 1px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.member-state {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.member-state.online {
+  color: var(--accent);
+}
+
+.member-state.offline {
+  color: var(--warn);
+}
+
+.member-empty {
+  padding: 6px 8px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
 .game-stage {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);

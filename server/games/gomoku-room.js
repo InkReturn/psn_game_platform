@@ -110,8 +110,12 @@ class GomokuRoom extends RoomBase {
     // 2. 未满员时回到等待状态。
     if (!this.isStarted()) this.status = "waiting";
     this.touch();
-    // 3. 通知剩余玩家。
-    this.broadcast(makeMessage("room.player_left", { playerId: player.playerId, nickname: player.nickname, reason, snapshot: this.snapshot() }));
+    // 3. 通知剩余玩家（事件 + 最新权威快照）。
+    this.broadcastEventWithSnapshot("room.player_left", {
+      playerId: player.playerId,
+      nickname: player.nickname,
+      reason,
+    });
   }
 
   /** 权威快照（room + game 两部分）。 */
@@ -179,6 +183,8 @@ class GomokuRoom extends RoomBase {
         return this._applyRestart(color, ctx);
       case "play_again":
         return this._applyPlayAgain(color, ctx);
+      case "switch_side":
+        return this._applySwitchSide(color, ctx);
       default:
         return { ok: false, code: ErrorCodes.INVALID_ACTION, detail: `unknown action ${action.action}` };
     }
@@ -407,6 +413,41 @@ class GomokuRoom extends RoomBase {
     return { ok: true };
   }
 
+  /**
+   * 交换先后手（房间内任意玩家都可以发起）。
+   *
+   * 对局进行中且已有落子时禁止换位；未开局或一局已结束时允许，换位后清盘，
+   * 战绩保留（换位不是重开）。
+   *
+   * @param {number} color - 发起者颜色（仅校验在座）。
+   * @param {{playerId: string, requestId: string|null}} ctx - 发起者上下文。
+   * @returns {{ok: boolean, code?: string, detail?: string}} 结果。
+   */
+  _applySwitchSide(color, ctx) {
+    const g = this.game;
+    // 1. 交换座位：黑白 playerId、昵称、hostColor 与角色标签一起换。
+    g.hostColor = g.hostColor === BLACK ? WHITE : BLACK;
+    const blackName = g.players.black;
+    g.players.black = g.players.white;
+    g.players.white = blackName;
+    const tmp = this.seats[BLACK];
+    this.seats[BLACK] = this.seats[WHITE];
+    this.seats[WHITE] = tmp;
+    for (const p of this.players.values()) {
+      if (p.role === "host") p.role = "guest";
+      else if (p.role === "guest") p.role = "host";
+    }
+    g.nextBlackColor = EMPTY;
+    g.swapAfterGame = false;
+    // 2. 清盘并复位单局状态，战绩保留。
+    this._resetBoard();
+    g.message = "已交换先后手，黑棋先手";
+    this.touch();
+    this.broadcastGame(ctx);
+    this.broadcastSnapshot({ event: "side_switched" });
+    return { ok: true };
+  }
+
   /** 清空棋盘并复位单局状态（不动战绩与座位）。 */
   _resetBoard() {
     const g = this.game;
@@ -423,13 +464,17 @@ class GomokuRoom extends RoomBase {
   /**
    * 玩家断线通知：广播对端状态（座位保留，等待重连）。
    *
+   * 广播给房间内所有连接（含断线者本人）：断线者若还能收到（例如双连接场景），
+   * 也能拿到同一份权威状态，避免两端各自推断出不同的成员表。
+   *
    * @param {object} player - 断线玩家。
    */
   onPlayerDisconnected(player) {
-    this.broadcast(
-      makeMessage("room.player_disconnected", { playerId: player.playerId, nickname: player.nickname, snapshot: this.snapshot() }),
-      player.playerId,
-    );
+    this.broadcastEventWithSnapshot("room.player_disconnected", {
+      playerId: player.playerId,
+      nickname: player.nickname,
+      connected: false,
+    });
   }
 }
 

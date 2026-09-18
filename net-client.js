@@ -23,9 +23,11 @@
     UNAUTHORIZED_PLAYER: "身份校验失败，请重新加入房间",
     INVALID_ACTION: "当前操作不可用",
     GAME_NOT_STARTED: "还没开始对局，等待对手加入",
-    NOT_YOUR_TURN: "还没有轮到你落子",
+    NOT_YOUR_TURN: "还没轮到你走子",
     CELL_OCCUPIED: "这个位置已经有棋子了",
-    INVALID_MOVE: "落子位置不合法",
+    INVALID_MOVE: "位置不合法",
+    NOT_YOUR_PIECE: "这不是你的棋子",
+    ILLEGAL_MOVE_TARGET: "这步走不过去（受河道、兽穴或吃子规则限制）",
     GAME_ALREADY_FINISHED: "这一局已经结束了",
     INTERNAL_ERROR: "服务器开小差了，请稍后再试",
   };

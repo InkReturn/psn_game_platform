@@ -67,7 +67,7 @@ const baseUrl = process.env.BASE_URL || "http://127.0.0.1:8080";
 
   await page.goto(`${baseUrl}/tictactoe.html`, { waitUntil: "networkidle" });
   await page.click("#localBtn");
-  await page.click("#surrenderBtn");
+  await page.click("#startBtn"); // 对局进行中主按钮为"投降"
   const tictactoeSurrenderState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   await page.goto(`${baseUrl}/reversi.html`, { waitUntil: "networkidle" });

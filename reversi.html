@@ -6,8 +6,10 @@
     <title>LinkPlay 黑白棋</title>
     <link rel="stylesheet" href="styles.css" />
     <script defer src="net-client.js"></script>
-    <script defer src="room-common.js"></script>
-    <script defer src="grid-game.js"></script>
+    <script defer src="room-panel-shared.js"></script>
+    <script defer src="authoritative-room.js"></script>
+    <script defer src="grid-rules.js"></script>
+    <script defer src="grid-game-net.js"></script>
   </head>
   <body data-grid-game="reversi">
     <div class="app-shell grid-game-shell">
@@ -88,6 +90,7 @@
             <div class="actions">
               <button id="startBtn" class="primary-btn" type="button">开始</button>
               <button id="restartBtn" type="button">重新开始</button>
+              <button id="swapSideBtn" type="button" hidden>交换位置</button>
             </div>
             <div class="actions">
               <button id="undoBtn" type="button">悔棋</button>
