@@ -56,14 +56,14 @@
 - **修复原版真实 bug**：爆牌玩家在庄家爆牌时会被判胜（score=0 通过判定），现按 21 点本意爆牌必输（有回归测试）。
 - 人数 1-3（建房时选定）；筹码跨局延续（房主开新一局）；测试：blackjack-rules 7 / blackjack-authority 9 / blackjack-dual 9。
 
-### texas（德州扑克，简化）
-- 现有实现程度：preflop/flop/turn/river/showdown、固定 20 注、all-in（stack 限制）、fold/check/call/raise、单一/平分底池、机器人。无盲注升级、无边池、无锦标赛。
-- 服务端：牌堆、hole cards、community、button/轮次、pot、结算。
-- 私有快照：本家 hole cards + 他人 fold 状态与下注 + community；摊牌前不发他人 hole cards、不发 deck。
+### texas（德州扑克，简化）✅ 已完成（commit 1b7f4d5）
+- 现有实现程度完整迁移：preflop/flop/turn/river/showdown、前注 10、固定加注 20、all-in 钳制（无边池，沿用旧口径）、fold/check/call、弃牌获胜、7 选 5 牌力评估、平分底池、庄家位轮转、筹码跨手延续。无盲注升级/边池/锦标赛（本就不存在）。
+- 隐私：底牌只发本人（终局后公开，沿用旧终局展示口径）；未来公共牌与牌堆永不下发（公共牌张数按阶段断言）；隐私断言用「牌 id 全集约束」。
+- 人数 2-6；测试：texas-rules 7 / texas-authority 9 / texas-dual 9。
 
 ## 测试基线
 
-`npm test` 27/27 通过（HEAD 5ee8289，含 21 点三套新测试）。每游戏迁移须新增：
+`npm test` 30/30 通过（HEAD 1b7f4d5）——**全部 11 款游戏权威化完成**。每游戏迁移均已包含：
 1. 规则单元测试（纯函数）；
 2. WS 权威测试（含伪造状态拒绝、随机数来自服务器、隐私负向测试：payload 中不得出现他人手牌/暗牌/牌堆）;
 3. 双/多浏览器 Playwright 验收（真实 WSS 链路，无 mock）；
@@ -73,5 +73,5 @@
 
 1. ~~checkers（完全信息多人，跑顺多人权威房模式）~~ ✅
 2. ~~ludo → monopoly（服务器骰子）~~ ✅
-3. ~~landlord → blackjack~~ ✅ → texas（复用 personalizedSnapshots 私有快照基础设施）
-4. 全平台回归 + 部署 pangbao-server + demo.game.e-du.cn 线上验收
+3. ~~landlord → blackjack → texas（洗牌 + 私有状态 + 隐私测试）~~ ✅
+4. 全平台回归 + 部署 pangbao-server + demo.game.e-du.cn 线上验收（进行中）
