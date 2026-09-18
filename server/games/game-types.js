@@ -35,6 +35,7 @@ const AUTHORITATIVE_GAME_TYPES = Object.freeze({
   monopoly: "DF",
   landlord: "DD",
   blackjack: "BJ",
+  texas: "TX",
 });
 
 /** 转发房前缀。 */

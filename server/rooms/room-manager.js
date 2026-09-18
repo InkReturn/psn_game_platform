@@ -15,6 +15,7 @@ const { LudoRoom } = require("../games/ludo-room");
 const { MonopolyRoom } = require("../games/monopoly-room");
 const { LandlordRoom } = require("../games/landlord-room");
 const { BlackjackRoom } = require("../games/blackjack-room");
+const { TexasRoom } = require("../games/texas-room");
 const { RoomModel, isSupportedGameType, roomModelOf, roomPrefixOf } = require("../games/game-types");
 const { RelayRoom } = require("./relay-room");
 const { ErrorCodes } = require("../protocol/errors");
@@ -44,6 +45,7 @@ const AUTHORITATIVE_ROOMS = {
   monopoly: (roomId, payload) => new MonopolyRoom(roomId, payload),
   landlord: (roomId) => new LandlordRoom(roomId),
   blackjack: (roomId, payload) => new BlackjackRoom(roomId, payload),
+  texas: (roomId, payload) => new TexasRoom(roomId, payload),
 };
 
 class RoomManager {

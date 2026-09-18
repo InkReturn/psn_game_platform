@@ -58,11 +58,10 @@ async function createRoomAndWait(page) {
   await createRoomAndWait(page);
   const animalState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
+  // 德州扑克已改为服务器权威房：单人建房停在"等待满员"，底牌只发给本人。
+  // 完整的双人对局（下注/摊牌/弃牌获胜/刷新恢复/新一手/离开）由 tests/texas-dual.cjs 覆盖。
   await page.goto(`${baseUrl}/texas.html`, { waitUntil: "networkidle" });
   await createRoomAndWait(page);
-  await page.click("#addTexasRobotBtn");
-  await page.click("#startTexasBtn");
-  await page.click("#checkCallBtn");
   const texasState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   // 21 点已改为服务器权威房：单人建房停在"等待满员"，庄家暗牌结算前不下发。
@@ -95,8 +94,10 @@ async function createRoomAndWait(page) {
   // 斗兽棋权威房：单人建房应有 16 子、未开局、已进房，且我方执红。
   if (animalState.pieces.length !== 16 || animalState.started || !animalState.room?.roomId) process.exit(1);
   if (animalState.mySide !== "red" || animalState.turn !== "red") process.exit(1);
-  if (texasState.seats.length < 2 || !texasState.started || !texasState.room?.roomId) process.exit(1);
-  if (!["preflop", "flop", "turn", "river", "showdown"].includes(texasState.phase)) process.exit(1);
+  // 德州扑克权威房：单人建房应已进房、未开局（等待满员），且我方坐 0 号位、无底牌。
+  if (texasState.started || texasState.phase !== "idle" || !texasState.room?.roomId) process.exit(1);
+  if (texasState.mySeatIndex !== 0) process.exit(1);
+  if (texasState.myHand.length !== 0) process.exit(1);
   // 21 点权威房：单人建房应已进房、未开局（等待满员），且我方坐 0 号位、无手牌。
   if (blackjackState.started || blackjackState.phase !== "idle" || !blackjackState.room?.roomId) process.exit(1);
   if (blackjackState.mySeatIndex !== 0) process.exit(1);
