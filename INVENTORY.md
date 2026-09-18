@@ -50,9 +50,11 @@
 - 隐私负向测试直接扫 WebSocket payload：他人手牌 id / 未公布底牌 id 在任何消息中不出现（发牌后/地主确定后/重连后/终局/重发后五轮检查）。
 - 在线房间为 3 真人满员自动开局（relay 时代的机器人补位由真人入座替代）；测试：landlord-rules 9 / landlord-authority 12 / landlord-dual（三浏览器）11。
 
-### blackjack（21 点，多人对庄家）
-- 服务端：牌堆、洗牌、发牌、hit/stand/bust、庄家补牌（<16 要牌）、结算。
-- 私有快照：庄家暗牌在 settle 前不下发（只发 visible 数量）。保持「多人对庄家」玩法。
+### blackjack（21 点，多人对庄家）✅ 已完成（commit 5ee8289）
+- 服务端：crypto 洗牌、发牌、hit/stand/bust、庄家补牌（<17 要牌）、结算派彩（赢家 +底注×2）。
+- 隐私：庄家暗牌结算前不下发（只发明牌+张数）；他人手牌结算前只发张数，结算后公开核对；牌堆永不下发。
+- **修复原版真实 bug**：爆牌玩家在庄家爆牌时会被判胜（score=0 通过判定），现按 21 点本意爆牌必输（有回归测试）。
+- 人数 1-3（建房时选定）；筹码跨局延续（房主开新一局）；测试：blackjack-rules 7 / blackjack-authority 9 / blackjack-dual 9。
 
 ### texas（德州扑克，简化）
 - 现有实现程度：preflop/flop/turn/river/showdown、固定 20 注、all-in（stack 限制）、fold/check/call/raise、单一/平分底池、机器人。无盲注升级、无边池、无锦标赛。
@@ -61,7 +63,7 @@
 
 ## 测试基线
 
-`npm test` 24/24 通过（HEAD aa29231，含斗地主三套新测试）。每游戏迁移须新增：
+`npm test` 27/27 通过（HEAD 5ee8289，含 21 点三套新测试）。每游戏迁移须新增：
 1. 规则单元测试（纯函数）；
 2. WS 权威测试（含伪造状态拒绝、随机数来自服务器、隐私负向测试：payload 中不得出现他人手牌/暗牌/牌堆）;
 3. 双/多浏览器 Playwright 验收（真实 WSS 链路，无 mock）；
@@ -71,5 +73,5 @@
 
 1. ~~checkers（完全信息多人，跑顺多人权威房模式）~~ ✅
 2. ~~ludo → monopoly（服务器骰子）~~ ✅
-3. ~~landlord~~ ✅ → blackjack → texas（复用 personalizedSnapshots 私有快照基础设施）
+3. ~~landlord → blackjack~~ ✅ → texas（复用 personalizedSnapshots 私有快照基础设施）
 4. 全平台回归 + 部署 pangbao-server + demo.game.e-du.cn 线上验收
