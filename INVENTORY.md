@@ -44,10 +44,11 @@
 - 服务端：骰子 + 机会事件金额（均 crypto 生成）、位置、资金、地产归属、租金（基础+房数×25）、税、监狱、破产终局。
 - 保持简化规则；人数 2-4；测试：monopoly-rules 10 / monopoly-authority 10（含全买/全跳驱动到破产）/ monopoly-dual 9。
 
-### landlord（斗地主，3 人）
-- 服务端：洗牌、发牌 17×3+3 底、叫/抢地主、倍率、牌型判断、压牌判断、轮次、胜负。
-- 私有快照：本家手牌 + 他人手牌数 + 已出牌 + 公开底牌（地主确定后）。**禁止把他人手牌/未翻底牌发给任何客户端。**
-- 机器人补位逻辑迁到服务端（保持现有 hint 复用）。
+### landlord（斗地主，3 人）✅ 已完成（commit aa29231）
+- 服务端：crypto 洗牌、发牌 17×3+3 底、叫/抢地主（倍率×2）、简化牌型判定（单/对/三/炸/王炸/顺子）、压牌判定、轮次、胜负。
+- **私有快照基础设施**：RoomBase 新增 snapshotFor + personalizedSnapshots，广播/加入/重连响应按玩家过滤——其他玩家手牌、未公布底牌、牌堆顺序永不下发。
+- 隐私负向测试直接扫 WebSocket payload：他人手牌 id / 未公布底牌 id 在任何消息中不出现（发牌后/地主确定后/重连后/终局/重发后五轮检查）。
+- 在线房间为 3 真人满员自动开局（relay 时代的机器人补位由真人入座替代）；测试：landlord-rules 9 / landlord-authority 12 / landlord-dual（三浏览器）11。
 
 ### blackjack（21 点，多人对庄家）
 - 服务端：牌堆、洗牌、发牌、hit/stand/bust、庄家补牌（<16 要牌）、结算。
@@ -60,7 +61,7 @@
 
 ## 测试基线
 
-`npm test` 21/21 通过（HEAD eab4e74，含跳棋/飞行棋/大富翁九套新测试）。每游戏迁移须新增：
+`npm test` 24/24 通过（HEAD aa29231，含斗地主三套新测试）。每游戏迁移须新增：
 1. 规则单元测试（纯函数）；
 2. WS 权威测试（含伪造状态拒绝、随机数来自服务器、隐私负向测试：payload 中不得出现他人手牌/暗牌/牌堆）;
 3. 双/多浏览器 Playwright 验收（真实 WSS 链路，无 mock）；
@@ -70,5 +71,5 @@
 
 1. ~~checkers（完全信息多人，跑顺多人权威房模式）~~ ✅
 2. ~~ludo → monopoly（服务器骰子）~~ ✅
-3. landlord → blackjack → texas（洗牌 + 私有状态 + 隐私测试）
+3. ~~landlord~~ ✅ → blackjack → texas（复用 personalizedSnapshots 私有快照基础设施）
 4. 全平台回归 + 部署 pangbao-server + demo.game.e-du.cn 线上验收
