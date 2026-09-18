@@ -1,0 +1,21 @@
+[Unit]
+Description=LinkPlay game platform (Node.js + WebSocket, server-authoritative rooms)
+Documentation=file:/opt/psn-game-platform/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/psn-game-platform
+Environment=PORT=48230
+Environment=BIND_HOST=127.0.0.1
+Environment=NODE_ENV=production
+ExecStart=/opt/node-v24.17.0-linux-x64/bin/node server.js
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=psn-game-platform
+
+[Install]
+WantedBy=multi-user.target

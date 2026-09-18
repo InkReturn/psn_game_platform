@@ -135,6 +135,9 @@ npm run test:dual        # 仅五子棋双端验收（自行在 18082 端口拉�
 
 服务器上以 systemd 常驻 Node 进程，只监听回环地址，由既有 Nginx 反代并终结 TLS。
 
+> 实际使用的 unit 与 vhost 文件留档在仓库 `deploy/` 目录，并附带一致性核对与回滚说明，
+> 见 `deploy/README.md`。下面步骤与其等价，任选其一照做即可。
+
 1. 拉取代码并安装运行期依赖：
 
 ```bash

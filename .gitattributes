@@ -1,0 +1,4 @@
+# 部署资产强制 LF：这两个文件要原样拷到 Linux，混入 CRLF 会让 systemd / nginx 解析异常。
+# 只约束 deploy/ 目录与本文档自身，不改动仓库其他文件的换行策略，避免影响其他分支的在途工作。
+.gitattributes text eol=lf
+deploy/** text eol=lf
