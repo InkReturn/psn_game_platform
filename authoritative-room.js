@@ -37,11 +37,13 @@
    * @param {Function} [options.onGameUpdate] - 服务器权威对局快照到达回调。
    * @param {Function} [options.onError] - 服务器拒绝操作回调（含中文文案）。
    * @param {Function} [options.isGameReady] - 由游戏层判定对局是否已开始，用于状态栏文案。
+   * @param {Function} [options.createPayload] - 建房时附加负载（如跳棋的 playerCount）；
+   *   返回的对象会合并进 room.create 请求；加入/重连不带这些字段。
    * @returns {object} 面板 API。
    */
   window.initAuthoritativeRoomPanel = function initAuthoritativeRoomPanel(options) {
     const opts = options || {};
-    const { gameType, prefix, storageKey, onRoomChange, onGameUpdate, onError, isGameReady } = opts;
+    const { gameType, prefix, storageKey, onRoomChange, onGameUpdate, onError, isGameReady, createPayload } = opts;
     if (!gameType || !storageKey) throw new Error("initAuthoritativeRoomPanel requires gameType and storageKey");
     const roomStatus = document.querySelector("#roomStatus");
     const nicknameInput = document.querySelector("#nicknameInput");
@@ -304,7 +306,7 @@
       updateStatus();
       try {
         await net.connect();
-        const res = await net.request("room.create", { gameType, prefix, nickname: state.nickname });
+        const res = await net.request("room.create", { gameType, prefix, nickname: state.nickname, ...(createPayload?.() || {}) });
         state.roomId = res.payload.roomId;
         state.playerId = res.payload.playerId;
         state.role = res.payload.role || "host";

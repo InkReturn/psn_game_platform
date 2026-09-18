@@ -30,6 +30,7 @@ const AUTHORITATIVE_GAME_TYPES = Object.freeze({
   tictactoe: "JZ",
   reversi: "HB",
   connect4: "SZ",
+  checkers: "TQ",
 });
 
 /** 转发房前缀。 */

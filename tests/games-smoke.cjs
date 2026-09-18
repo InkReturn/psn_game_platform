@@ -43,10 +43,11 @@ async function createRoomAndWait(page) {
   await page.click("#startLudoBtn");
   const ludoState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
+  // 跳棋已改为服务器权威房：单人建房停在"等待满员"，不再有本地开局按钮。
+  // 完整的双人对局（走子/越权/刷新恢复/重开/离开）由 tests/checkers-dual.cjs 覆盖。
   await page.goto(`${baseUrl}/checkers.html`, { waitUntil: "networkidle" });
-  await createRoomAndWait(page);
   await page.selectOption("#checkersPlayerCount", "6");
-  await page.click("#startCheckersBtn");
+  await createRoomAndWait(page);
   const checkersState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   // 斗兽棋已改为服务器权威房：单人建房只会停在"等待对手"，不再有本地开局按钮。
@@ -95,7 +96,9 @@ async function createRoomAndWait(page) {
   if (errors.length) process.exit(1);
   if (monopolyState.players.length !== 4 || !monopolyState.started || !monopolyState.room?.roomId) process.exit(1);
   if (ludoState.teams.length !== 4 || !ludoState.started || !ludoState.room?.roomId) process.exit(1);
-  if (checkersState.players.length !== 6 || !checkersState.started || !checkersState.room?.roomId) process.exit(1);
+  // 跳棋权威房：单人建房应配置 6 人局、未开局、已进房，且我方坐 0 号位。
+  if (checkersState.playerCount !== 6 || checkersState.started || !checkersState.room?.roomId) process.exit(1);
+  if (checkersState.mySeatIndex !== 0) process.exit(1);
   // 斗兽棋权威房：单人建房应有 16 子、未开局、已进房，且我方执红。
   if (animalState.pieces.length !== 16 || animalState.started || !animalState.room?.roomId) process.exit(1);
   if (animalState.mySide !== "red" || animalState.turn !== "red") process.exit(1);

@@ -10,6 +10,7 @@
 const { GomokuRoom } = require("../games/gomoku-room");
 const { AnimalChessRoom } = require("../games/animal-chess-room");
 const { GridGameRoom } = require("../games/grid-room");
+const { CheckersRoom } = require("../games/checkers-room");
 const { RoomModel, isSupportedGameType, roomModelOf, roomPrefixOf } = require("../games/game-types");
 const { RelayRoom } = require("./relay-room");
 const { ErrorCodes } = require("../protocol/errors");
@@ -27,13 +28,14 @@ function defaultLog(...args) {
   console.log("[rooms]", ...args);
 }
 
-/** 权威房构造表：gameType -> (roomId) => Room。 */
+/** 权威房构造表：gameType -> (roomId, payload) => Room（payload 为建房负载，按需取用）。 */
 const AUTHORITATIVE_ROOMS = {
   gomoku: (roomId) => new GomokuRoom(roomId),
   "animal-chess": (roomId) => new AnimalChessRoom(roomId),
   tictactoe: (roomId) => new GridGameRoom(roomId, "tictactoe"),
   reversi: (roomId) => new GridGameRoom(roomId, "reversi"),
   connect4: (roomId) => new GridGameRoom(roomId, "connect4"),
+  checkers: (roomId, payload) => new CheckersRoom(roomId, payload),
 };
 
 class RoomManager {
@@ -97,7 +99,7 @@ class RoomManager {
     // 3. 建房：权威房由服务端持有对局状态，其余走转发房。
     const prefix = String(payload.prefix || roomPrefixOf(gameType)).slice(0, 2);
     const roomId = this.generateRoomId(prefix);
-    const room = AUTHORITATIVE_ROOMS[gameType] ? AUTHORITATIVE_ROOMS[gameType](roomId) : new RelayRoom(roomId, gameType);
+    const room = AUTHORITATIVE_ROOMS[gameType] ? AUTHORITATIVE_ROOMS[gameType](roomId, payload) : new RelayRoom(roomId, gameType);
     this.rooms.set(roomId, room);
     // 4. 创建者入座（标记房主）并绑定连接。
     const player = room.createPlayer(nickname, { host: true });
