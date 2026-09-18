@@ -424,25 +424,18 @@ async function driveWithStall({ clients, side, spec, goal, stallSpec, stallPair,
   };
   /** 主棋子连续无法规划路径的次数：对手垫步棋子会来回摆动，等它让开即可继续。 */
   let deadlocks = 0;
+  /** 公网延迟下的竞态预算：请求被拒（轮次竞态/限流）时重新同步后重试。 */
+  let retries = 0;
   for (let turn = 0; turn < maxTurns; turn += 1) {
-    const base = clients.red.lastGame();
-    if (!base || !base.started || base.over) {
-      dbg(`abort: base invalid (started=${base?.started} over=${base?.over})`);
+    // 1. 先等双方快照追平同一份权威状态：公网延迟下不能同步读单方快照
+    //    （旧快照会把轮次判错，导致请求被 NOT_YOUR_TURN 拒绝）。
+    const game = await syncBoth(clients);
+    if (!game || !game.started || game.over) {
+      dbg(`abort: base invalid (started=${game?.started} over=${game?.over})`);
       return null;
     }
-    const currentSide = base.turn;
+    const currentSide = game.turn;
     const actor = clients[currentSide];
-    try {
-      await actor.waitUntil(() => actor.lastGame()?.moveCount >= base.moveCount, "收到最新快照", 3000);
-    } catch {
-      dbg("abort: actor snapshot lag");
-      return null;
-    }
-    const game = actor.lastGame();
-    if (!game || !game.started || game.over || game.turn !== currentSide) {
-      dbg(`abort: actor state mismatch (turn=${game?.turn} expected=${currentSide})`);
-      return null;
-    }
     const at = piecePosition(game, spec.name, spec.owner);
     if (currentSide === side && at && at.row === goal.row && at.col === goal.col) return game;
     let move = null;
@@ -458,6 +451,9 @@ async function driveWithStall({ clients, side, spec, goal, stallSpec, stallPair,
         }
         move = findPassMove(game, side);
         dbg(`no plan (retry ${deadlocks}): pass with ${move ? `${move.pieceName} ${JSON.stringify(move.from)}->${JSON.stringify(move.to)}` : "none"}`);
+      } else {
+        // 1.1 有规划就重置死锁计数：阻塞只是垫步棋子的暂时位置。
+        deadlocks = 0;
       }
     } else {
       move = makeOscillator(stallSpec, stallPair[0], stallPair[1])(game, other) || findPassMove(game, other);
@@ -469,6 +465,12 @@ async function driveWithStall({ clients, side, spec, goal, stallSpec, stallPair,
     try {
       await actor.request("game.action", { action: "move", from: move.from, to: move.to });
     } catch (err) {
+      // 2. 轮次竞态/限流被拒：重新同步后重试（预算内），不直接放弃。
+      if ((err.code === "NOT_YOUR_TURN" || err.code === "RATE_LIMITED") && retries < 20) {
+        retries += 1;
+        dbg(`transient ${err.code} (retry ${retries}), resyncing`);
+        continue;
+      }
       dbg(`${currentSide} ${JSON.stringify(move)} failed: ${err.code || err.message}`);
       return null;
     }
