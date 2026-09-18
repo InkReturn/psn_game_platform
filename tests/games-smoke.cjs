@@ -31,10 +31,11 @@ async function createRoomAndWait(page) {
   });
   page.on("pageerror", (err) => errors.push(err.message));
 
+  // 大富翁已改为服务器权威房：单人建房停在"等待满员"，骰子与机会事件由服务器裁定。
+  // 完整的双人对局（掷骰/购买/越权/刷新恢复/重开/离开）由 tests/monopoly-dual.cjs 覆盖。
   await page.goto(`${baseUrl}/monopoly.html`, { waitUntil: "networkidle" });
-  await createRoomAndWait(page);
   await page.selectOption("#monopolyPlayerCount", "4");
-  await page.click("#startMonopolyBtn");
+  await createRoomAndWait(page);
   const monopolyState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   // 飞行棋已改为服务器权威房：单人建房停在"等待满员"，骰子由服务器投掷。
@@ -95,7 +96,9 @@ async function createRoomAndWait(page) {
   console.log(JSON.stringify({ monopolyState, ludoState, checkersState, animalState, texasState, blackjackState, landlordState, addRobotDisabled, errors }, null, 2));
 
   if (errors.length) process.exit(1);
-  if (monopolyState.players.length !== 4 || !monopolyState.started || !monopolyState.room?.roomId) process.exit(1);
+  // 大富翁权威房：单人建房应配置 4 人局、未开局、已进房，且我方坐 0 号位。
+  if (monopolyState.playerCount !== 4 || monopolyState.started || !monopolyState.room?.roomId) process.exit(1);
+  if (monopolyState.mySeatIndex !== 0) process.exit(1);
   // 飞行棋权威房：单人建房应配置 4 人局、未开局、已进房，且我方坐 0 号位。
   if (ludoState.playerCount !== 4 || ludoState.started || !ludoState.room?.roomId) process.exit(1);
   if (ludoState.mySeatIndex !== 0) process.exit(1);
