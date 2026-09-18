@@ -27,14 +27,17 @@ const SUITES = [
   { file: "tests/grid-authority.cjs", label: "棋类权威房间 WS 联机测试（伪造状态被拒）" },
   { file: "tests/checkers-rules.cjs", label: "跳棋规则单元测试" },
   { file: "tests/checkers-authority.cjs", label: "跳棋权威房间 WS 联机测试（多人座位/越权/重连）" },
+  { file: "tests/ludo-rules.cjs", label: "飞行棋规则单元测试" },
+  { file: "tests/ludo-authority.cjs", label: "飞行棋权威房间 WS 联机测试（服务器骰子/伪造拒绝/重连）" },
   { file: "tests/animal-chess-dual.cjs", label: "斗兽棋服务器权威双客户端验收" },
   { file: "tests/lobby-smoke.cjs", label: "大厅 → 五子棋导航" },
   { file: "tests/gomoku-smoke.cjs", label: "五子棋冒烟（联机 + 本地）" },
-  { file: "tests/games-smoke.cjs", label: "联机游戏建房（relay 五款 + 斗兽棋/跳棋权威房）" },
+  { file: "tests/games-smoke.cjs", label: "联机游戏建房（relay 四款 + 斗兽棋/跳棋/飞行棋权威房）" },
   { file: "tests/grid-games-smoke.cjs", label: "棋盘类游戏本地规则" },
   { file: "tests/gomoku-dual.cjs", label: "五子棋双端联机验收" },
   { file: "tests/grid-dual.cjs", label: "棋类游戏双浏览器联机验收（井字棋/四子棋/黑白棋）" },
   { file: "tests/checkers-dual.cjs", label: "跳棋双浏览器联机验收（完整一局/重开/离开）" },
+  { file: "tests/ludo-dual.cjs", label: "飞行棋双浏览器联机验收（服务器骰子完整一局）" },
 ];
 
 /** 被测服务器进程。 */

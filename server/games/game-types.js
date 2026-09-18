@@ -31,6 +31,7 @@ const AUTHORITATIVE_GAME_TYPES = Object.freeze({
   reversi: "HB",
   connect4: "SZ",
   checkers: "TQ",
+  ludo: "FQ",
 });
 
 /** 转发房前缀。 */

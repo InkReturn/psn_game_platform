@@ -37,10 +37,11 @@ async function createRoomAndWait(page) {
   await page.click("#startMonopolyBtn");
   const monopolyState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
+  // 飞行棋已改为服务器权威房：单人建房停在"等待满员"，骰子由服务器投掷。
+  // 完整的双人对局（掷骰/越权/刷新恢复/重开/离开）由 tests/ludo-dual.cjs 覆盖。
   await page.goto(`${baseUrl}/ludo.html`, { waitUntil: "networkidle" });
-  await createRoomAndWait(page);
   await page.selectOption("#ludoPlayerCount", "4");
-  await page.click("#startLudoBtn");
+  await createRoomAndWait(page);
   const ludoState = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
 
   // 跳棋已改为服务器权威房：单人建房停在"等待满员"，不再有本地开局按钮。
@@ -95,7 +96,9 @@ async function createRoomAndWait(page) {
 
   if (errors.length) process.exit(1);
   if (monopolyState.players.length !== 4 || !monopolyState.started || !monopolyState.room?.roomId) process.exit(1);
-  if (ludoState.teams.length !== 4 || !ludoState.started || !ludoState.room?.roomId) process.exit(1);
+  // 飞行棋权威房：单人建房应配置 4 人局、未开局、已进房，且我方坐 0 号位。
+  if (ludoState.playerCount !== 4 || ludoState.started || !ludoState.room?.roomId) process.exit(1);
+  if (ludoState.mySeatIndex !== 0) process.exit(1);
   // 跳棋权威房：单人建房应配置 6 人局、未开局、已进房，且我方坐 0 号位。
   if (checkersState.playerCount !== 6 || checkersState.started || !checkersState.room?.roomId) process.exit(1);
   if (checkersState.mySeatIndex !== 0) process.exit(1);
