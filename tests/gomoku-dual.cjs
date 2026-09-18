@@ -28,8 +28,9 @@ const SELF_PORT = 18082;
 /** 外部注入的站点地址（为空则自拉服务器）。 */
 const EXTERNAL_BASE = process.env.BASE_URL || "";
 const BASE_URL = EXTERNAL_BASE || `http://127.0.0.1:${SELF_PORT}`;
-/** 期望的 WebSocket 端点（自建服务器固定 /ws）。 */
-const EXPECTED_WS = `ws://${BASE_URL.replace(/^https?:\/\//, "")}/ws`;
+/** 期望的 WebSocket 端点（自建服务器固定 /ws；HTTPS 页面走 wss）。 */
+const WS_SCHEME = BASE_URL.startsWith("https") ? "wss" : "ws";
+const EXPECTED_WS = `${WS_SCHEME}://${BASE_URL.replace(/^https?:\/\//, "")}/ws`;
 
 /** 用例结果收集。 */
 const results = [];
