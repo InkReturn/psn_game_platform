@@ -1,8 +1,0 @@
-[     135ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0c801cdc:14335
-[     403ms] [INFO] [menu-binding] 绑定覆盖率 28/28（激活） @ http://localhost:5173/src/components/layout/AppLayout.tsx:102
-[     421ms] [INFO] [menu-binding] 绑定覆盖率 28/28（激活） @ http://localhost:5173/src/components/layout/AppLayout.tsx:102
-[   27516ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5173/supply/credentials:0
-[ 1101410ms] [INFO] [menu-binding] 绑定覆盖率 28/28（激活） @ http://localhost:5173/src/components/layout/AppLayout.tsx?t=1789762901731:102
-[ 1101529ms] [INFO] [menu-binding] 绑定覆盖率 28/28（激活） @ http://localhost:5173/src/components/layout/AppLayout.tsx?t=1789762901731:102
-[ 1456554ms] [INFO] [menu-binding] 绑定覆盖率 28/28（激活） @ http://localhost:5173/src/components/layout/AppLayout.tsx?t=1789763256808:102
-[ 1456723ms] [INFO] [menu-binding] 绑定覆盖率 28/28（激活） @ http://localhost:5173/src/components/layout/AppLayout.tsx?t=1789763256808:102
