@@ -1,0 +1,49 @@
+- generic [ref=f2e2]:
+  - generic [ref=f2e9]:
+    - banner [ref=f2e10]:
+      - generic [ref=f2e11]:
+        - generic [ref=f2e12]: 胖
+        - generic [ref=f2e13]: 胖宝控制台
+      - button "搜索（命令面板）" [ref=f2e14]:
+        - generic [ref=f2e18]: 搜索
+        - generic [ref=f2e19]: ⌘K
+      - button "产品与服务" [ref=f2e21]
+      - button "用户菜单" [ref=f2e30]:
+        - generic [ref=f2e31]: E
+        - generic [ref=f2e32]: e2eadmin
+    - generic [ref=f2e35]:
+      - complementary [ref=f2e36]:
+        - button "胖宝官方 企业组织 · ADMIN" [ref=f2e38]:
+          - generic [ref=f2e43]:
+            - generic [ref=f2e44]: 胖宝官方
+            - generic [ref=f2e45]: 企业组织 · ADMIN
+        - generic [ref=f2e48]:
+          - generic [ref=f2e49]: 账与钱
+          - button "切换产品与服务" [ref=f2e53]
+        - navigation "主导航" [ref=f2e54]:
+          - generic [ref=f2e55]:
+            - button "客户的账" [expanded] [ref=f2e56]
+            - list [ref=f2e59]:
+              - listitem [ref=f2e60]:
+                - link "交易订单" [ref=f2e61] [cursor=pointer]:
+                  - /url: /billing/orders
+              - listitem [ref=f2e64]:
+                - link "退款审批" [ref=f2e65] [cursor=pointer]:
+                  - /url: /billing/refunds
+              - listitem [ref=f2e69]:
+                - link "支付通道" [ref=f2e70] [cursor=pointer]:
+                  - /url: /billing/channels
+              - listitem [ref=f2e73]:
+                - link "发票管理" [ref=f2e74] [cursor=pointer]:
+                  - /url: /billing/invoices
+        - button "收起菜单" [ref=f2e78]
+      - main [ref=f2e82]:
+        - generic [ref=f2e85]:
+          - paragraph [ref=f2e91]: 没有访问这一屏的权限
+          - paragraph [ref=f2e92]: 该页面需要对应权限码，请联系管理员开通
+          - link "← 返回工作台" [ref=f2e93] [cursor=pointer]:
+            - /url: /
+    - generic [ref=f2e94]:
+      - heading "搜索页面" [level=2] [ref=f2e95]
+      - paragraph [ref=f2e96]: 输入名称快速跳转
+  - region "Notifications alt+T"

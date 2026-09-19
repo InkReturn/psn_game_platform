@@ -6,7 +6,6 @@ const WHITE = 2;
 const canvas = document.querySelector("#boardCanvas");
 const ctx = canvas.getContext("2d");
 const roomInput = document.querySelector("#roomInput");
-const localBtn = document.querySelector("#localBtn");
 const surrenderBtn = document.querySelector("#surrenderBtn");
 const restartBtn = document.querySelector("#restartBtn");
 const undoBtn = document.querySelector("#undoBtn");
@@ -36,8 +35,8 @@ const exitRoomBtn = document.querySelector("#exitRoomBtn");
 /**
  * 五子棋客户端状态。
  *
- * 在线模式：board/moves/turn/winner/record 等全部来自服务器权威快照，
- * 本地只做渲染与操作意图发送；本地模式：本文件自行推进规则。
+ * board/moves/turn/winner/record 等全部来自服务器权威快照，
+ * 本地只做渲染与操作意图发送，不自行推进规则。
  */
 const state = {
   board: createBoard(),
@@ -83,19 +82,17 @@ roomApi = window.initGomokuPanel({
   onRoomChange(room) {
     state.room = room;
     if (!room.roomId) {
-      state.mode = state.mode === "local" ? "local" : "idle";
-      state.role = state.mode === "local" ? "both" : "spectator";
-      state.roomId = state.mode === "local" ? "local" : "";
-      if (state.mode !== "local") {
-        state.players = { black: "等待", white: "等待" };
-        state.seatPlayerIds = { black: null, white: null };
-        state.message = "创建房间或加入房间开始对局";
-        state.board = createBoard();
-        state.moves = [];
-        state.winner = EMPTY;
-        state.turn = BLACK;
-        hideResultModal();
-      }
+      state.mode = "idle";
+      state.role = "spectator";
+      state.roomId = "";
+      state.players = { black: "等待", white: "等待" };
+      state.seatPlayerIds = { black: null, white: null };
+      state.message = "创建房间或加入房间开始对局";
+      state.board = createBoard();
+      state.moves = [];
+      state.winner = EMPTY;
+      state.turn = BLACK;
+      hideResultModal();
       render();
       return;
     }
@@ -180,14 +177,6 @@ function setStatus(text, connected = false) {
   connectionStatus.style.color = connected ? "var(--accent)" : "var(--warn)";
 }
 
-function resetRoomRecord(label = "新房间") {
-  state.record = { total: 0, players: {} };
-  state.recordLabel = label;
-  state.gameCounted = false;
-  state.nextBlackColor = EMPTY;
-  state.swapAfterGame = false;
-}
-
 function normalizeRecord(record = state.record) {
   const normalized = {
     total: Number(record?.total) || 0,
@@ -200,18 +189,8 @@ function normalizeRecord(record = state.record) {
   return normalized;
 }
 
-function playerNameForColor(color) {
-  return state.players[colorKey(color)] || colorName(color);
-}
-
 function winsForPlayer(name) {
   return normalizeRecord().players[name] || 0;
-}
-
-function countWinForPlayer(color) {
-  state.record = normalizeRecord();
-  const name = playerNameForColor(color);
-  state.record.players[name] = (state.record.players[name] || 0) + 1;
 }
 
 function hideResultModal() {
@@ -259,54 +238,8 @@ function applyServerSnapshot(snapshot) {
   else hideResultModal();
 }
 
-function resetBoard(message = "黑棋先手") {
-  applyWinnerBlackRule();
-  state.board = createBoard();
-  state.moves = [];
-  state.turn = BLACK;
-  state.winner = EMPTY;
-  state.hover = null;
-  state.gameCounted = false;
-  state.nextBlackColor = EMPTY;
-  state.undoRequest = null;
-  state.undoLocks = { [BLACK]: false, [WHITE]: false };
-  state.message = message;
-  hideResultModal();
-  render();
-}
-
-function startLocal() {
-  roomApi?.leaveRoom?.();
-  state.mode = "local";
-  state.role = "both";
-  state.roomId = "local";
-  state.hostColor = BLACK;
-  state.swapAfterGame = false;
-  state.nextBlackColor = EMPTY;
-  state.players = { black: "本地玩家 A", white: "本地玩家 B" };
-  resetRoomRecord("本地房间");
-  setStatus("本地对战", true);
-  resetBoard("本地对战已开始");
-  render();
-}
-
 function updateRoomControls() {
-  const inOnlineRoom = state.mode === "online" && Boolean(state.roomId);
-  if (localBtn) localBtn.hidden = inOnlineRoom;
   if (restartBtn) restartBtn.hidden = false;
-}
-
-function applyWinnerBlackRule() {
-  if (!state.nextBlackColor) return;
-  if (state.nextBlackColor === WHITE) {
-    state.hostColor = oppositeColor(state.hostColor);
-    const black = state.players.black;
-    state.players.black = state.players.white;
-    state.players.white = black;
-  }
-  state.nextBlackColor = EMPTY;
-  state.swapAfterGame = false;
-  syncRoleFromSeat();
 }
 
 function updateUndoPanel() {
@@ -318,16 +251,15 @@ function updateUndoPanel() {
     undoRequestText.textContent = `${colorName(request.requesterColor)}请求悔一步`;
   }
   const ownPending = request && request.requesterColor === myColor;
-  const requesterColor = state.mode === "local" ? state.turn : myColor;
-  const hasOwnMove = requesterColor ? state.moves.some((move) => move.color === requesterColor) : false;
+  const hasOwnMove = myColor ? state.moves.some((move) => move.color === myColor) : false;
   undoBtn.disabled =
     Boolean(request) ||
     state.winner ||
     !state.moves.length ||
-    state.mode === "idle" ||
-    !requesterColor ||
+    state.mode !== "online" ||
+    !myColor ||
     !hasOwnMove ||
-    Boolean(state.undoLocks[requesterColor]);
+    Boolean(state.undoLocks[myColor]);
   if (ownPending) {
     undoBtn.textContent = "等待对方同意";
   } else {
@@ -488,165 +420,47 @@ function pointToCell(point) {
   return { row, col };
 }
 
-/** 是否允许本地触发落子交互（在线模式还要求当前轮到自己）。 */
+/** 是否允许触发落子交互（在线模式要求当前轮到自己）。 */
 function canPlay() {
   if (state.winner || state.undoRequest) return false;
-  if (state.mode === "local") return true;
   if (state.mode !== "online") return false;
   return (state.role === "black" && state.turn === BLACK) || (state.role === "white" && state.turn === WHITE);
 }
 
 /**
- * 认输：在线模式发送意图由服务器结算；本地模式直接判负。
+ * 认输：发送意图由服务器结算。
  */
 function surrenderGame() {
-  if (state.winner || state.mode === "idle") return;
-  if (state.mode === "online") {
-    roomApi.sendAction("surrender").catch(() => {});
-    return;
-  }
-  const loser = state.turn;
-  if (!loser) return;
-  const winner = oppositeColor(loser);
-  finishGame(winner);
-  state.message = `${colorName(loser)}认输，${colorName(winner)}获胜`;
-  render();
-}
-
-function countDirection(row, col, dr, dc, color) {
-  let count = 0;
-  let r = row + dr;
-  let c = col + dc;
-  while (r >= 0 && c >= 0 && r < BOARD_SIZE && c < BOARD_SIZE && state.board[r][c] === color) {
-    count += 1;
-    r += dr;
-    c += dc;
-  }
-  return count;
-}
-
-function checkWinner(row, col, color) {
-  return (
-    countDirection(row, col, 0, 1, color) + countDirection(row, col, 0, -1, color) + 1 >= 5 ||
-    countDirection(row, col, 1, 0, color) + countDirection(row, col, -1, 0, color) + 1 >= 5 ||
-    countDirection(row, col, 1, 1, color) + countDirection(row, col, -1, -1, color) + 1 >= 5 ||
-    countDirection(row, col, 1, -1, color) + countDirection(row, col, -1, 1, color) + 1 >= 5
-  );
-}
-
-function finishGame(color) {
-  state.winner = color;
-  state.message = `${colorName(color)}获胜`;
-  if (!state.gameCounted) {
-    state.record = normalizeRecord();
-    state.record.total += 1;
-    countWinForPlayer(color);
-    state.gameCounted = true;
-    state.nextBlackColor = color;
-    state.swapAfterGame = true;
-  }
-  showResultModal();
+  if (state.winner || state.mode !== "online") return;
+  roomApi.sendAction("surrender").catch(() => {});
 }
 
 /**
- * 本地模式落子（在线模式的落子由服务器权威推进，本地不修改棋盘）。
- */
-function placeStone(row, col, color) {
-  if (state.board[row][col] !== EMPTY || state.winner || state.undoRequest) return false;
-  state.board[row][col] = color;
-  state.moves.push({ row, col, color, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
-  state.undoLocks[color] = false;
-  if (checkWinner(row, col, color)) {
-    finishGame(color);
-  } else {
-    state.turn = color === BLACK ? WHITE : BLACK;
-    state.message = `轮到${colorName(state.turn)}`;
-  }
-  render();
-  return true;
-}
-
-/** 本地模式悔棋回滚。 */
-function removeMovesFrom(moveIndex) {
-  const removed = state.moves.splice(moveIndex);
-  if (!removed.length) return false;
-  removed.forEach((move) => {
-    state.board[move.row][move.col] = EMPTY;
-  });
-  const move = removed[0];
-  if (!move) return false;
-  state.turn = move.color;
-  state.winner = EMPTY;
-  state.message = `${colorName(move.color)}已悔一步，轮到${colorName(state.turn)}`;
-  state.undoRequest = null;
-  hideResultModal();
-  return true;
-}
-
-/**
- * 悔棋：在线模式向服务器发请求；本地模式直接回滚。
+ * 悔棋：向服务器发请求，由双方确认后服务器回滚。
  */
 function requestUndo() {
-  if (!state.moves.length || state.winner || state.undoRequest) return;
-  if (state.mode === "online") {
-    roomApi.sendAction("undo_request").catch(() => {});
-    return;
-  }
-  const requesterColor = state.turn;
-  if (!requesterColor) return;
-  if (state.undoLocks[requesterColor]) {
-    state.message = "每次落子后只能申请一次悔棋";
-    render();
-    return;
-  }
-  const moveIndex = state.moves.findLastIndex((move) => move.color === requesterColor);
-  if (moveIndex < 0) {
-    state.message = "只能申请悔自己刚下的最后一步";
-    render();
-    return;
-  }
-  state.undoLocks[requesterColor] = true;
-  removeMovesFrom(moveIndex);
-  render();
+  if (state.mode !== "online" || !state.moves.length || state.winner || state.undoRequest) return;
+  roomApi.sendAction("undo_request").catch(() => {});
 }
 
 /**
- * 响应悔棋：在线模式把结论交给服务器；本地模式直接生效。
+ * 响应悔棋：把结论交给服务器（仅对手可响应）。
  *
  * @param {boolean} approved - 是否同意。
  */
 function resolveUndoRequest(approved) {
   const request = state.undoRequest;
-  if (!request) return;
-  if (state.mode === "online") {
-    if (request.requesterColor === ownColor()) return;
-    roomApi.sendAction("undo_respond", { approved }).catch(() => {});
-    return;
-  }
-  if (approved) {
-    const move = state.moves[request.moveIndex];
-    if (move && move.color === request.requesterColor) {
-      removeMovesFrom(request.moveIndex);
-    } else {
-      state.undoRequest = null;
-      state.message = "悔棋失败，棋局已变化";
-    }
-  } else {
-    state.message = "对方拒绝悔棋";
-    state.undoRequest = null;
-  }
-  render();
+  if (!request || state.mode !== "online") return;
+  if (request.requesterColor === ownColor()) return;
+  roomApi.sendAction("undo_respond", { approved }).catch(() => {});
 }
 
 /**
- * 再开一把：在线模式由服务器清盘并按规则换先。
+ * 再开一把：由服务器清盘并按规则换先。
  */
 function playAgain() {
-  if (state.mode === "online") {
-    roomApi.sendAction("play_again").catch(() => {});
-    return;
-  }
-  resetBoard("再开一把，黑棋先手");
+  if (state.mode !== "online") return;
+  roomApi.sendAction("play_again").catch(() => {});
 }
 
 function exitToLobby() {
@@ -672,29 +486,19 @@ canvas.addEventListener("click", (event) => {
     render();
     return;
   }
-  // 1. 在线模式：只发意图，等待服务器权威快照回推。
-  if (state.mode === "online") {
-    if (state.board[cell.row][cell.col] !== EMPTY) {
-      state.message = "这个位置已经有棋子了";
-      render();
-      return;
-    }
-    roomApi.sendAction("move", cell).catch(() => {});
+  // 1. 只发意图，等待服务器权威快照回推。
+  if (state.board[cell.row][cell.col] !== EMPTY) {
+    state.message = "这个位置已经有棋子了";
+    render();
     return;
   }
-  // 2. 本地模式：直接落子。
-  placeStone(cell.row, cell.col, state.turn);
+  roomApi.sendAction("move", cell).catch(() => {});
 });
 
-localBtn.addEventListener("click", startLocal);
 surrenderBtn?.addEventListener("click", surrenderGame);
 restartBtn.addEventListener("click", () => {
-  if (state.mode === "online") {
-    roomApi.sendAction("restart").catch(() => {});
-    return;
-  }
-  resetRoomRecord("本地房间");
-  resetBoard("已重新开局，战绩已清零");
+  if (state.mode !== "online") return;
+  roomApi.sendAction("restart").catch(() => {});
 });
 undoBtn.addEventListener("click", requestUndo);
 approveUndoBtn.addEventListener("click", () => resolveUndoRequest(true));

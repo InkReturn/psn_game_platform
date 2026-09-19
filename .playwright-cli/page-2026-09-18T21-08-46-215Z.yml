@@ -1,0 +1,377 @@
+- generic [ref=f10e2]:
+  - generic [ref=f10e9]:
+    - banner [ref=f10e10]:
+      - generic [ref=f10e11]:
+        - generic [ref=f10e12]: 胖
+        - generic [ref=f10e13]: 胖宝控制台
+      - button "搜索（命令面板）" [ref=f10e838]:
+        - generic [ref=f10e18]: 搜索
+        - generic [ref=f10e19]: ⌘K
+      - button "产品与服务" [ref=f10e839]
+      - button "用户菜单" [ref=f10e840]:
+        - generic [ref=f10e31]: A
+        - generic [ref=f10e32]: admin
+    - generic [ref=f10e35]:
+      - complementary [ref=f10e36]:
+        - button "胖宝官方 企业组织 · ADMIN" [ref=f10e841]:
+          - generic [ref=f10e43]:
+            - generic [ref=f10e44]: 胖宝官方
+            - generic [ref=f10e45]: 企业组织 · ADMIN
+        - generic [ref=f10e48]:
+          - generic [ref=f10e49]: 配置
+          - button "切换产品与服务" [ref=f10e842]
+        - navigation "主导航" [ref=f10e843]:
+          - generic [ref=f10e56]:
+            - button "供给资源" [expanded] [ref=f10e844]
+            - list [ref=f10e60]:
+              - listitem [ref=f10e61]:
+                - link "供应商" [ref=f10e845] [cursor=pointer]:
+                  - /url: /supply/providers
+              - listitem [ref=f10e67]:
+                - link "接入凭据" [ref=f10e846] [cursor=pointer]:
+                  - /url: /supply/credentials
+              - listitem [ref=f10e72]:
+                - link "资源池" [ref=f10e847] [cursor=pointer]:
+                  - /url: /supply/resource-pools
+          - generic [ref=f10e78]:
+            - button "模型与语音" [expanded] [ref=f10e848]
+            - list [ref=f10e82]:
+              - listitem [ref=f10e83]:
+                - link "路由策略" [ref=f10e849] [cursor=pointer]:
+                  - /url: /capability/routing
+              - listitem [ref=f10e89]:
+                - link "语音方案" [ref=f10e850] [cursor=pointer]:
+                  - /url: /voice/schemes
+              - listitem [ref=f10e94]:
+                - link "唤醒词状态" [ref=f10e851] [cursor=pointer]:
+                  - /url: /voice/wake-word
+          - generic [ref=f10e102]:
+            - button "技能与授权" [expanded] [ref=f10e852]
+            - list [ref=f10e106]:
+              - listitem [ref=f10e107]:
+                - link "能力产品" [ref=f10e853] [cursor=pointer]:
+                  - /url: /capability/products
+              - listitem [ref=f10e112]:
+                - link "原子 Tool" [ref=f10e854] [cursor=pointer]:
+                  - /url: /capability/tools
+              - listitem [ref=f10e116]:
+                - link "任务运行" [ref=f10e855] [cursor=pointer]:
+                  - /url: /workflow/runs
+              - listitem [ref=f10e120]:
+                - link "对话测试" [ref=f10e856] [cursor=pointer]:
+                  - /url: /workflow/chat
+          - generic [ref=f10e124]:
+            - button "创作台" [expanded] [ref=f10e857]
+            - list [ref=f10e128]:
+              - listitem [ref=f10e129]:
+                - link "图片创作" [ref=f10e858] [cursor=pointer]:
+                  - /url: /capability/image
+              - listitem [ref=f10e137]:
+                - link "PPT 专家" [ref=f10e859] [cursor=pointer]:
+                  - /url: /capability/ppt
+              - listitem [ref=f10e142]:
+                - link "视频创作" [ref=f10e860] [cursor=pointer]:
+                  - /url: /capability/video
+        - button "收起菜单" [ref=f10e861]
+      - main [ref=f10e151]:
+        - generic [ref=f10e228]:
+          - generic [ref=f10e229]:
+            - generic [ref=f10e230]:
+              - link [ref=f10e862] [cursor=pointer]:
+                - /url: /supply/resource-pools
+                - button "资源池" [ref=f10e863]
+              - heading "GPT Production Pool" [level=2] [ref=f10e864]
+              - paragraph [ref=f10e234]: chat_default_pool · 分层调度视图（数值越小越优先，同层内按权重分摊）
+            - generic [ref=f10e235]:
+              - button "添加成员" [ref=f10e865]
+              - button "保存成员" [disabled]
+          - generic [ref=f10e237]:
+            - generic [ref=f10e238]:
+              - paragraph [ref=f10e239]: 可调度凭据
+              - paragraph [ref=f10e240]:
+                - text: "12"
+                - generic [ref=f10e241]: / 12
+            - generic [ref=f10e242]:
+              - paragraph [ref=f10e243]: 并发（当前/总）
+              - paragraph [ref=f10e244]:
+                - text: "0"
+                - generic [ref=f10e245]: / 5
+            - generic [ref=f10e246]:
+              - paragraph [ref=f10e247]: 限流 / 冷却 / 异常
+              - paragraph [ref=f10e248]: 0 / 0 / 0
+            - generic [ref=f10e249]:
+              - paragraph [ref=f10e250]: 层级分布
+              - generic [ref=f10e251]:
+                - generic [ref=f10e252]: 第一优先 ×11
+                - generic [ref=f10e253]: 保底 ×1
+          - generic [ref=f10e254]:
+            - combobox "按供应商筛选成员" [ref=f10e867]:
+              - option "全部供应商" [selected]
+              - option "deepseek-official"
+              - option "kimi-official"
+              - option "relay-a"
+              - option "zz-enum-probe"
+              - option "zz-upd-probe"
+              - option "official-mock"
+            - combobox "按运行状态筛选成员" [ref=f10e868]:
+              - option "全部运行状态" [selected]
+              - option "预热中"
+              - option "正常"
+              - option "限流中"
+              - option "因额度限制暂不可调度"
+              - option "冷却中"
+              - option "已熔断"
+              - option "探测中"
+              - option "凭据失效"
+              - option "已过期"
+            - combobox "按标签筛选成员" [ref=f10e869]:
+              - option "全部标签" [selected]
+              - option "备用"
+              - option "官方账号A"
+              - option "批量导入"
+              - option "批量验收"
+              - option "生产"
+              - option "已验证"
+              - option "主用"
+              - option "E2E验收"
+            - textbox "按模型筛选（如 gpt）" [ref=f10e870]
+          - generic [ref=f10e259]:
+            - generic [ref=f10e260]:
+              - generic [ref=f10e261]: 第一优先
+              - generic [ref=f10e262]: Tier 10 · 10 个成员（本层有可用成员时不进入下一层）
+            - table [ref=f10e265]:
+              - rowgroup [ref=f10e266]:
+                - row [ref=f10e871]:
+                  - columnheader "凭据" [ref=f10e872]
+                  - columnheader "权重" [ref=f10e873]
+                  - columnheader "并发上限" [ref=f10e874]
+                  - columnheader "在途" [ref=f10e875]
+                  - columnheader "运行状态" [ref=f10e876]
+                  - columnheader "成员状态" [ref=f10e877]
+                  - columnheader "层级" [ref=f10e878]
+                  - columnheader "操作" [ref=f10e879]
+              - rowgroup [ref=f10e276]:
+                - row [ref=f10e880]:
+                  - cell "relay-a-001" [ref=f10e881]
+                  - cell [ref=f10e882]:
+                    - spinbutton [ref=f10e280]: "1"
+                  - cell [ref=f10e281]:
+                    - spinbutton "不限" [ref=f10e883]
+                  - cell "0" [ref=f10e884]
+                  - cell "预热中" [ref=f10e885]
+                  - cell [ref=f10e886]:
+                    - button "停用" [ref=f10e887]
+                  - cell "第一优先" [ref=f10e888]:
+                    - combobox "调度层级" [ref=f10e889]:
+                      - option "第一优先" [selected]
+                      - option "第二优先"
+                      - option "备用"
+                      - option "保底"
+                  - cell [ref=f10e290]:
+                    - button [ref=f10e291]
+                - row [ref=f10e890]:
+                  - cell "relay-a-002" [ref=f10e891]
+                  - cell [ref=f10e892]:
+                    - spinbutton [ref=f10e295]: "1"
+                  - cell [ref=f10e296]:
+                    - spinbutton "不限" [ref=f10e893]
+                  - cell "0" [ref=f10e894]
+                  - cell "预热中" [ref=f10e895]
+                  - cell [ref=f10e896]:
+                    - button "停用" [ref=f10e897]
+                  - cell "第一优先" [ref=f10e898]:
+                    - combobox "调度层级" [ref=f10e899]:
+                      - option "第一优先" [selected]
+                      - option "第二优先"
+                      - option "备用"
+                      - option "保底"
+                  - cell [ref=f10e305]:
+                    - button [ref=f10e306]
+                - row [ref=f10e900]:
+                  - cell "relay-a-003" [ref=f10e901]
+                  - cell [ref=f10e902]:
+                    - spinbutton [ref=f10e310]: "1"
+                  - cell [ref=f10e311]:
+                    - spinbutton "不限" [ref=f10e903]
+                  - cell "0" [ref=f10e904]
+                  - cell "预热中" [ref=f10e905]
+                  - cell [ref=f10e906]:
+                    - button "停用" [ref=f10e907]
+                  - cell "第一优先" [ref=f10e908]:
+                    - combobox "调度层级" [ref=f10e909]:
+                      - option "第一优先" [selected]
+                      - option "第二优先"
+                      - option "备用"
+                      - option "保底"
+                  - cell [ref=f10e320]:
+                    - button [ref=f10e321]
+                - row [ref=f10e910]:
+                  - cell "relay-a-004" [ref=f10e911]
+                  - cell [ref=f10e912]:
+                    - spinbutton [ref=f10e325]: "1"
+                  - cell [ref=f10e326]:
+                    - spinbutton "不限" [ref=f10e913]
+                  - cell "0" [ref=f10e914]
+                  - cell "预热中" [ref=f10e915]
+                  - cell [ref=f10e916]:
+                    - button "停用" [ref=f10e917]
+                  - cell "第一优先" [ref=f10e918]:
+                    - combobox "调度层级" [ref=f10e919]:
+                      - option "第一优先" [selected]
+                      - option "第二优先"
+                      - option "备用"
+                      - option "保底"
+                  - cell [ref=f10e335]:
+                    - button [ref=f10e336]
+                - row [ref=f10e920]:
+                  - cell "relay-a-005" [ref=f10e921]
+                  - cell [ref=f10e922]:
+                    - spinbutton [ref=f10e340]: "1"
+                  - cell [ref=f10e341]:
+                    - spinbutton "不限" [ref=f10e923]
+                  - cell "0" [ref=f10e924]
+                  - cell "预热中" [ref=f10e925]
+                  - cell [ref=f10e926]:
+                    - button "停用" [ref=f10e927]
+                  - cell "第一优先" [ref=f10e928]:
+                    - combobox "调度层级" [ref=f10e929]:
+                      - option "第一优先" [selected]
+                      - option "第二优先"
+                      - option "备用"
+                      - option "保底"
+                  - cell [ref=f10e350]:
+                    - button [ref=f10e351]
+                - row [ref=f10e930]:
+                  - cell "relay-a-006" [ref=f10e931]
+                  - cell [ref=f10e932]:
+                    - spinbutton [ref=f10e355]: "1"
+                  - cell [ref=f10e356]:
+                    - spinbutton "不限" [ref=f10e933]
+                  - cell "0" [ref=f10e934]
+                  - cell "预热中" [ref=f10e935]
+                  - cell [ref=f10e936]:
+                    - button "停用" [ref=f10e937]
+                  - cell "第一优先" [ref=f10e938]:
+                    - combobox "调度层级" [ref=f10e939]:
+                      - option "第一优先" [selected]
+                      - option "第二优先"
+                      - option "备用"
+                      - option "保底"
+                  - cell [ref=f10e365]:
+                    - button [ref=f10e366]
+                - row [ref=f10e940]:
+                  - cell "relay-a-007" [ref=f10e941]
+                  - cell [ref=f10e942]:
+                    - spinbutton [ref=f10e370]: "1"
+                  - cell [ref=f10e371]:
+                    - spinbutton "不限" [ref=f10e943]
+                  - cell "0" [ref=f10e944]
+                  - cell "预热中" [ref=f10e945]
+                  - cell [ref=f10e946]:
+                    - button "停用" [ref=f10e947]
+                  - cell "第一优先" [ref=f10e948]:
+                    - combobox "调度层级" [ref=f10e949]:
+                      - option "第一优先" [selected]
+                      - option "第二优先"
+                      - option "备用"
+                      - option "保底"
+                  - cell [ref=f10e380]:
+                    - button [ref=f10e381]
+                - row [ref=f10e950]:
+                  - cell "relay-a-008" [ref=f10e951]
+                  - cell [ref=f10e952]:
+                    - spinbutton [ref=f10e385]: "1"
+                  - cell [ref=f10e386]:
+                    - spinbutton "不限" [ref=f10e953]
+                  - cell "0" [ref=f10e954]
+                  - cell "预热中" [ref=f10e955]
+                  - cell [ref=f10e956]:
+                    - button "停用" [ref=f10e957]
+                  - cell "第一优先" [ref=f10e958]:
+                    - combobox "调度层级" [ref=f10e959]:
+                      - option "第一优先" [selected]
+                      - option "第二优先"
+                      - option "备用"
+                      - option "保底"
+                  - cell [ref=f10e395]:
+                    - button [ref=f10e396]
+                - row [ref=f10e960]:
+                  - cell "relay-a-009" [ref=f10e961]
+                  - cell [ref=f10e962]:
+                    - spinbutton [ref=f10e400]: "1"
+                  - cell [ref=f10e401]:
+                    - spinbutton "不限" [ref=f10e963]
+                  - cell "0" [ref=f10e964]
+                  - cell "预热中" [ref=f10e965]
+                  - cell [ref=f10e966]:
+                    - button "停用" [ref=f10e967]
+                  - cell "第一优先" [ref=f10e968]:
+                    - combobox "调度层级" [ref=f10e969]:
+                      - option "第一优先" [selected]
+                      - option "第二优先"
+                      - option "备用"
+                      - option "保底"
+                  - cell [ref=f10e410]:
+                    - button [ref=f10e411]
+                - row [ref=f10e970]:
+                  - cell "relay-a-010" [ref=f10e971]
+                  - cell [ref=f10e972]:
+                    - spinbutton [ref=f10e415]: "1"
+                  - cell [ref=f10e416]:
+                    - spinbutton "不限" [ref=f10e973]
+                  - cell "0" [ref=f10e974]
+                  - cell "预热中" [ref=f10e975]
+                  - cell [ref=f10e976]:
+                    - button "停用" [ref=f10e977]
+                  - cell "第一优先" [ref=f10e978]:
+                    - combobox "调度层级" [ref=f10e979]:
+                      - option "第一优先" [selected]
+                      - option "第二优先"
+                      - option "备用"
+                      - option "保底"
+                  - cell [ref=f10e425]:
+                    - button [ref=f10e426]
+          - generic [ref=f10e427]:
+            - generic [ref=f10e428]:
+              - generic [ref=f10e429]: 保底
+              - generic [ref=f10e430]: Tier 100 · 1 个成员
+            - table [ref=f10e433]:
+              - rowgroup [ref=f10e434]:
+                - row [ref=f10e995]:
+                  - columnheader "凭据" [ref=f10e996]
+                  - columnheader "权重" [ref=f10e997]
+                  - columnheader "并发上限" [ref=f10e998]
+                  - columnheader "在途" [ref=f10e999]
+                  - columnheader "运行状态" [ref=f10e1000]
+                  - columnheader "成员状态" [ref=f10e1001]
+                  - columnheader "层级" [ref=f10e1002]
+                  - columnheader "操作" [ref=f10e1003]
+              - rowgroup [ref=f10e444]:
+                - row [ref=f10e1004]:
+                  - cell "official-mock-001" [ref=f10e1005]
+                  - cell [ref=f10e1006]:
+                    - spinbutton [ref=f10e448]: "1"
+                  - cell [ref=f10e449]:
+                    - spinbutton "不限" [ref=f10e1007]
+                  - cell "0" [ref=f10e1008]
+                  - cell "预热中" [ref=f10e1009]
+                  - cell [ref=f10e1010]:
+                    - button "停用" [ref=f10e1011]
+                  - cell "保底" [ref=f10e1012]:
+                    - combobox "调度层级" [ref=f10e1013]:
+                      - option "第一优先"
+                      - option "第二优先"
+                      - option "备用"
+                      - option "保底" [selected]
+                  - cell [ref=f10e458]:
+                    - button [ref=f10e459]
+          - paragraph [ref=f10e460]: 层级档位：10 第一优先 · 20 第二优先 · 50 备用 · 100 保底 · 移除成员只解除本池关系，接入凭据不受影响
+    - generic [ref=f10e225]:
+      - heading "搜索页面" [level=2] [ref=f10e1014]
+      - paragraph [ref=f10e227]: 输入名称快速跳转
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=f10e1023]:
+        - generic [ref=f10e1028]:
+          - generic [ref=f10e1029]: 成员已保存
+          - generic [ref=f10e1030]: 新增 1 · 更新 0 · 移除 0

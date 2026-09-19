@@ -31,7 +31,6 @@
 
   const canvas = document.querySelector("#boardCanvas");
   const ctx = canvas.getContext("2d");
-  const localBtn = document.querySelector("#localBtn");
   const startBtn = document.querySelector("#startBtn");
   const restartBtn = document.querySelector("#restartBtn");
   const swapSideBtn = document.querySelector("#swapSideBtn");
@@ -84,7 +83,7 @@
     undoMode: gameKey === "reversi" ? "no-undo" : null,
     timers: gameKey === "reversi" ? { black: 0, white: 0 } : null,
     turnStartedAt: null,
-    message: "创建房间、加入房间或本地对战后开始",
+    message: "创建房间或加入房间开始对局",
     legalMoves: [],
     room: null,
   };
@@ -116,15 +115,13 @@
       state.room = room;
       roomStatus.textContent = room.roomId ? `房间 ${room.roomId}` : "未进入房间";
       if (!room.roomId) {
-        // 1. 退出房间后回到未开局状态（本地模式不受影响）。
-        if (state.mode !== "local") {
-          state.mode = "idle";
-          state.seatColor = null;
-          state.roomId = "";
-          state.players = { black: "等待", white: "等待" };
-          state.started = false;
-          state.message = "创建房间、加入房间或本地对战后开始";
-        }
+        // 1. 退出房间后回到未开局状态。
+        state.mode = "idle";
+        state.seatColor = null;
+        state.roomId = "";
+        state.players = { black: "等待", white: "等待" };
+        state.started = false;
+        state.message = "创建房间或加入房间开始对局";
         render();
         return;
       }
@@ -149,7 +146,6 @@
    */
   function localColor() {
     const myId = roomApi?.getPlayerId?.() || "";
-    if (state.mode === "local") return state.turn;
     if (!myId || !state.seatPlayerIds) return null;
     if (state.seatPlayerIds.black === myId) return BLACK;
     if (state.seatPlayerIds.white === myId) return WHITE;
@@ -218,214 +214,65 @@
     return rules.colorLabel(config, color);
   }
 
-  /** 本方当前是否可以先手落子。
+  /** 本方当前是否可以落子。
    * @returns {boolean} true 表示轮到自己。
    */
   function canPlay() {
     if (!state.started || state.winner || state.draw) return false;
-    if (state.mode === "local") return true;
     if (state.mode !== "online") return false;
     return localColor() === state.turn;
   }
 
-  /** 发送一步落子意图（在线）/ 本地直接推进。 */
+  /** 发送一步落子意图（只发意图，棋盘等服务器快照回推后再改）。 */
   function playCell(row, col) {
     if (!canPlay()) {
       state.message = state.started ? "还没轮到你操作" : "请先开始游戏";
       render();
       return;
     }
-    if (state.mode === "online") {
-      // 1. 在线模式：只发意图，棋盘等服务器快照回推后再改。
-      roomApi.sendAction("move", { row, col }).catch(() => render());
-      return;
-    }
-    // 2. 本地模式：用同一份规则模块推进，保证与服务端口径一致。
-    const color = state.turn;
-    const verdict = rules.validateMove(config, {
-      board: state.board,
-      color,
-      cell: { row, col },
-      started: true,
-      over: false,
-      turn: state.turn,
-    });
-    if (!verdict.ok) return;
-    // 1. 结算本方用时（仅黑白棋）。
-    commitLocalClock(color);
-    state.board[verdict.row][verdict.col] = color;
-    verdict.flips.forEach(([r, c]) => {
-      state.board[r][c] = color;
-    });
-    state.moves.push({ row: verdict.row, col: verdict.col, color, flipCells: verdict.flips.map(([r, c]) => ({ row: r, col: c })), flips: verdict.flips.length });
-    const outcome = rules.evaluateGridOutcome(config, state.board, { row: verdict.row, col: verdict.col }, color);
-    if (outcome.over) finishLocalGame(outcome.winner, outcome.draw);
-    else {
-      state.turn = outcome.nextTurn;
-      state.message = state.turn === color ? `${colorName(color)}继续落子` : `轮到${colorName(state.turn)}`;
-    }
-    updateLegalMoves();
-    render();
+    roomApi.sendAction("move", { row, col }).catch(() => render());
   }
 
-  /**
-   * 本地模式结算（战绩与换先口径与服务器实现一致）。
-   *
-   * @param {number} winner - 获胜颜色；平局传 EMPTY。
-   * @param {boolean} isDraw - 是否平局。
-   */
-  function finishLocalGame(winner, isDraw) {
-    state.winner = winner;
-    state.draw = isDraw;
-    state.message = isDraw ? "双方平局" : `${colorName(winner)}获胜`;
-    if (!state.gameCounted) {
-      state.record.total += 1;
-      if (isDraw) {
-        state.record.draw += 1;
-      } else {
-        const name = state.players[winner === BLACK ? "black" : "white"];
-        state.record.players[name] = (state.record.players[name] || 0) + 1;
-      }
-      state.gameCounted = true;
-      state.nextBlackColor = gameKey === "tictactoe" ? WHITE : isDraw ? EMPTY : winner;
-      state.swapAfterGame = Boolean(state.nextBlackColor);
-    }
-  }
-
-  /** 认输：在线发意图，本地直接判负。 */
+  /** 认输：发意图由服务器结算。 */
   function surrenderGame() {
-    if (!state.started || state.winner || state.draw || state.mode === "idle") return;
-    if (state.mode === "online") {
-      roomApi.sendAction("surrender").catch(() => render());
-      return;
-    }
-    const loser = state.mode === "local" ? state.turn : localColor();
-    if (!loser) return;
-    finishLocalGame(rules.opposite(loser), false);
-    render();
+    if (!state.started || state.winner || state.draw || state.mode !== "online") return;
+    roomApi.sendAction("surrender").catch(() => render());
   }
 
-  /** 黑白棋悔棋：在线发意图，本地直接回滚镜像。 */
+  /** 黑白棋悔棋：发意图由服务器回滚。 */
   function undoLastMove() {
     if (gameKey !== "reversi" || state.undoMode !== "undo" || !state.started || state.winner || state.draw) {
       state.message = state.undoMode === "undo" ? "当前没有可撤回的落子" : "当前房间未开启悔棋";
       render();
       return;
     }
-    if (state.mode === "online") {
-      roomApi.sendAction("undo").catch(() => render());
-      return;
-    }
-    const move = state.moves.at(-1);
-    if (!move) return;
-    state.moves.pop();
-    state.board[move.row][move.col] = EMPTY;
-    const reverted = rules.opposite(move.color);
-    (move.flipCells || []).forEach(({ row, col }) => {
-      state.board[row][col] = reverted;
-    });
-    state.turn = move.color;
-    state.winner = EMPTY;
-    state.draw = false;
-    state.gameCounted = false;
-    state.message = `${colorName(move.color)}已悔一步，轮到${colorName(state.turn)}`;
-    updateLegalMoves();
-    render();
+    if (state.mode !== "online") return;
+    roomApi.sendAction("undo").catch(() => render());
   }
 
-  /** 开启新一局（本地）。 */
-  function startLocal() {
-    state.mode = "local";
-    state.roomId = "local";
-    state.hostColor = BLACK;
-    state.swapAfterGame = false;
-    state.nextBlackColor = EMPTY;
-    if (gameKey === "reversi") state.undoMode = selectedUndoMode();
-    state.players = { black: "本地玩家 A", white: "本地玩家 B" };
-    state.record = { total: 0, players: {}, draw: 0 };
-    state.recordLabel = "本地房间";
-    state.gameCounted = false;
-    resetBoardLocal();
-    render();
-  }
-
-  /** 仅本地模式：按换先规则准备下一局棋盘。 */
-  function resetBoardLocal() {
-    if (state.nextBlackColor === WHITE) {
-      const black = state.players.black;
-      state.players.black = state.players.white;
-      state.players.white = black;
-    }
-    state.nextBlackColor = EMPTY;
-    state.swapAfterGame = false;
-    state.board = rules.createInitialBoard(config);
-    state.moves = [];
-    state.turn = BLACK;
-    state.winner = EMPTY;
-    state.draw = false;
-    state.started = true;
-    state.gameCounted = false;
-    state.timers = gameKey === "reversi" ? { black: 0, white: 0 } : null;
-    // 1. 本地模式没有服务器下发的 turnStartedAt，计时必须由客户端自己启动，
-    //    否则本地黑白棋的用时永远显示 00:00（在线模式的计时以服务器为准）。
-    state.turnStartedAt = gameKey === "reversi" ? Date.now() : null;
-    state.message = "对局开始，先手落子";
-    updateLegalMoves();
-  }
-
-  /**
-   * 本地模式结算本方回合用时并切换计时目标。
-   *
-   * @param {number} color - 刚刚完成落子的颜色。
-   */
-  function commitLocalClock(color) {
-    if (gameKey !== "reversi" || !state.turnStartedAt) return;
-    const elapsed = elapsedTimers();
-    state.timers = elapsed;
-    state.turnStartedAt = Date.now();
-    const key = color === BLACK ? "black" : "white";
-    state.timers[key] = Math.max(0, state.timers[key] || 0);
-  }
-
-  /** 开始/再开一把：在线发意图，本地重启一局。 */
+  /** 开始/再开一把：发意图由服务器决定并清盘（play_again 保留战绩换先）。 */
   function startGame() {
-    if (state.mode === "online") {
-      // 1. 在线：由服务器决定是否允许开局，并使用 play_again 保留战绩换先。
-      roomApi.sendAction(state.started ? "play_again" : "start").catch(() => render());
-      return;
-    }
-    if (state.mode !== "local") {
-      state.message = "请先创建房间、加入房间或选择本地对战";
+    if (state.mode !== "online") {
+      state.message = "请先创建房间或加入房间";
       render();
       return;
     }
-    resetBoardLocal();
-    render();
+    roomApi.sendAction(state.started ? "play_again" : "start").catch(() => render());
   }
 
   /** 重新开始：清空战绩重开（在线发 restart）。 */
   function restartGame() {
-    if (state.mode === "online") {
-      roomApi.sendAction("restart").catch(() => render());
-      return;
-    }
-    if (state.mode !== "local") {
-      state.message = "请先创建房间、加入房间或选择本地对战";
+    if (state.mode !== "online") {
+      state.message = "请先创建房间或加入房间";
       render();
       return;
     }
-    state.record = { total: 0, players: {}, draw: 0 };
-    state.recordLabel = "本地房间";
-    state.nextBlackColor = EMPTY;
-    state.swapAfterGame = false;
-    resetBoardLocal();
-    render();
+    roomApi.sendAction("restart").catch(() => render());
   }
 
   /** 控制房内按钮可见性。 */
   function updateRoomControls() {
     const inOnlineRoom = state.mode === "online" && Boolean(state.roomId);
-    if (localBtn) localBtn.hidden = inOnlineRoom;
     if (undoModeField) undoModeField.hidden = inOnlineRoom || gameKey !== "reversi" || state.started;
   }
 
@@ -628,12 +475,11 @@
     });
   }
 
-  /** 本地模式下是否可悔棋（在线模式由服务器最终裁决）。 */
+  /** 当前是否可发起悔棋（在线模式由服务器最终裁决）。 */
   function canLocalUndo() {
     if (gameKey !== "reversi" || state.undoMode !== "undo" || !state.started || state.winner || state.draw) return false;
     const move = state.moves.at(-1);
     if (!move) return false;
-    if (state.mode === "local") return true;
     if (state.mode !== "online") return false;
     return localColor() === move.color;
   }
@@ -642,7 +488,7 @@
    * 按座位统计胜场。
    *
    * 服务器快照里的 record.players 以昵称为键（昵称可重复、可改），因此这里优先使用
-   * 按颜色累计的 record.winners；旧快照或本地模式下回退到按当前座位昵称查询。
+   * 按颜色累计的 record.winners；旧快照回退到按当前座位昵称查询。
    *
    * @returns {{black:number,white:number}} 先手/后手各自的胜场数。
    */
@@ -660,10 +506,9 @@
   /** 结算弹窗文案：平局 / 我方获胜 / 对方获胜。 */
   function resultSummaryText() {
     if (state.draw) return "本局平局，要再开一把吗？";
-    // 1. 本地模式没有"我方"概念，直接报胜方颜色名。
-    const mine = state.mode === "local" ? null : localColor();
-    if (mine === null || state.mode === "local") return `${colorName(state.winner)}获胜，要再开一把吗？`;
-    // 2. 在线模式按自己执子颜色给出明确的输赢结论，避免只显示"黑棋获胜"还要玩家自己换算。
+    // 1. 按自己执子颜色给出明确的输赢结论，避免只显示"黑棋获胜"还要玩家自己换算。
+    const mine = localColor();
+    if (mine === null) return `${colorName(state.winner)}获胜，要再开一把吗？`;
     const won = mine === state.winner;
     const opponentName = state.players[won ? (mine === BLACK ? "white" : "black") : mine === BLACK ? "black" : "white"];
     if (won) return `你获胜了，要再开一把吗？`;
@@ -698,35 +543,14 @@
     }
   }
 
-  /** 交换座位（在线）/ 本地模式下交换先后手。 */
+  /** 交换座位（发意图由服务器执行）。 */
   function switchSide() {
-    if (state.mode === "online") {
-      roomApi.sendAction("switch_side").catch(() => render());
-      return;
-    }
-    if (state.mode !== "local") {
-      state.message = "请先创建房间、加入房间或选择本地对战";
+    if (state.mode !== "online") {
+      state.message = "请先创建房间或加入房间";
       render();
       return;
     }
-    // 1. 本地模式直接交换双方昵称与先后手（对阵未开始时才允许，避免中途换色）。
-    if (state.moves.length > 0 && !state.winner && !state.draw) {
-      state.message = "对局进行中不能交换位置";
-      render();
-      return;
-    }
-    const black = state.players.black;
-    state.players.black = state.players.white;
-    state.players.white = black;
-    state.hostColor = rules.opposite(state.hostColor);
-    state.board = rules.createInitialBoard(config);
-    state.moves = [];
-    state.turn = BLACK;
-    state.winner = EMPTY;
-    state.draw = false;
-    state.message = "已交换先后手";
-    updateLegalMoves();
-    render();
+    roomApi.sendAction("switch_side").catch(() => render());
   }
 
   /** 结果弹窗。 */
@@ -766,7 +590,6 @@
     playCell(cell.row, cell.col);
   });
 
-  localBtn?.addEventListener("click", startLocal);
   undoModeSelect?.addEventListener("change", () => {
     state.undoMode = selectedUndoMode();
     // 1. 在线时把设置同步给服务器（服务器是权威，只有它改了才算数）。
@@ -799,7 +622,7 @@
       gameType: gameKey,
       transportKind: presentation.transport,
       mode: state.mode,
-      role: state.mode === "local" ? "both" : localColor() === BLACK ? "black" : localColor() === WHITE ? "white" : "spectator",
+      role: localColor() === BLACK ? "black" : localColor() === WHITE ? "white" : "spectator",
       roomId: state.roomId,
       rows: config.rows,
       cols: config.cols,

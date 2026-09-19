@@ -1,0 +1,3 @@
+[     157ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0c801cdc:14335
+[     426ms] [INFO] [menu-binding] 绑定覆盖率 28/28（激活） @ http://localhost:5173/src/components/layout/AppLayout.tsx?t=1789763256808:102
+[  813034ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5173/@vite/client:1002

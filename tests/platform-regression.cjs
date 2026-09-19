@@ -174,39 +174,13 @@ async function waitForServer(timeoutMs = 20000) {
     });
   }
 
-  // 4. 本地模式回归：grid 三游戏 + 五子棋的本地按钮可用。
-  for (const [entry, button] of [
-    ["tictactoe.html", "#localBtn"],
-    ["reversi.html", "#localBtn"],
-    ["connect4.html", "#localBtn"],
-  ]) {
-    await check(`本地模式 ${entry}：进入本地对战后可落子`, async () => {
+  // 4. 本地模式已下线：各游戏页面只剩在线入口（无 #localBtn 残留）。
+  await check("全部游戏页面不再有本地对战入口", async () => {
+    for (const entry of entries) {
       await page.goto(`${BASE_URL}/${entry}`, { waitUntil: "networkidle" });
-      await page.click(button);
-      const state = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
-      assertEq(state.mode, "local", "进入本地模式");
-      if (entry === "reversi.html") {
-        // 1. 黑白棋开局只有 4 个固定合法点：验证本地规则就绪（可落点非空）。
-        assert(state.legalMoves && state.legalMoves.length === 4, `黑白棋本地合法点应为 4 个，实际 ${state.legalMoves?.length}`);
-        return;
-      }
-      // 2. 其余棋盘：真实点击棋盘落一子（画布中心）。
-      await page.click("#boardCanvas", { position: { x: 150, y: 150 } });
-      await page.waitForTimeout(200);
-      const after = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
-      assertEq(after.moves.length, 1, "本地落子成功");
-    });
-  }
-
-  await check("本地模式 gomoku.html：本地对战入口可用", async () => {
-    await page.goto(`${BASE_URL}/gomoku.html`, { waitUntil: "networkidle" });
-    // 1. 五子棋的本地入口由 gomoku-smoke 完整覆盖，这里只验证按钮存在且可进入。
-    const hasLocal = await page.locator("#localBtn").count().then((n) => n > 0);
-    assert(hasLocal, "本地对战按钮应存在");
-    await page.click("#localBtn");
-    await page.waitForTimeout(200);
-    const state = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
-    assert(state.mode === "local" || state.local === true || state.started !== undefined, "本地模式状态可读");
+      const hasLocalBtn = await page.locator("#localBtn").count().then((n) => n > 0);
+      assert(!hasLocalBtn, `${entry} 不应再有 #localBtn`);
+    }
   });
 
   await browser.close();

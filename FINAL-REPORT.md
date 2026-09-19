@@ -141,10 +141,10 @@ join/leave/disconnect/reconnect/seat/ready（满员自动开局）全部经 `roo
 
 ## 12. 回归
 
-- 五子棋：gomoku-smoke（联机+本地）+ gomoku-dual + server-protocol 全绿；线上 8/8。
+- 五子棋：gomoku-smoke（联机链路）+ gomoku-dual + server-protocol 全绿；线上 8/8。
 - 斗兽棋：animal-chess-rules + animal-chess-dual 20/20；线上 20/20。
 - 大厅：lobby-smoke + platform-regression（11 入口逐一打开、返回大厅）全绿。
-- 单机/本地模式：tictactoe/reversi/connect4 本地规则（grid-games-smoke）+ 本地模式可进入可落子（platform-regression）+ gomoku 本地入口全绿。
+- 本地/单机模式：**已按用户要求整体下线**（后续变更，见第 15 节）。
 
 ## 13. 遗留问题（真实遗留）
 
@@ -167,3 +167,22 @@ join/leave/disconnect/reconnect/seat/ready（满员自动开局）全部经 `roo
 # 验证：https://demo.game.e-du.cn 不可达即回滚完成；同机其他胖宝业务不受影响
 # （本服务与 Java 48080 / Go 48082 / 社区 49180 无任何进程/端口/数据库耦合）。
 ```
+
+## 15. 后续变更（验收后）：本地模式整体下线
+
+应用户要求，全部 11 款游戏只保留在线模式，本地/单机入口已移除：
+
+- `gomoku-app.js` / `grid-game-net.js`：删除本地模式代码路径（本地落子/本地悔棋/
+  本地结算/本地换先/本地计时等），页面只发意图、只渲染服务器权威快照；
+  五子棋黑白棋的用时计时完全以服务器 `turnStartedAt` 为准。
+- 4 个游戏页（gomoku/tictactoe/reversi/connect4）移除「本地对战」按钮与文案；
+  大厅井字棋卡片文案同步更新。
+- 测试：删除 `grid-games-smoke.cjs`（单浏览器本地规则，覆盖已由 grid-rules
+  纯函数单测 + grid-dual 真实双人在线验收承担）；`gomoku-smoke.cjs` 重写为
+  纯联机冒烟；`platform-regression.cjs` 的本地模式段改为「无 #localBtn 残留」
+  断言。
+- 全量测试 30/30 通过；部署后线上复验见第 16 节。
+
+## 16. 本地模式下线后的线上复验（demo.game.e-du.cn）
+
+（部署后填写）
