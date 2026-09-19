@@ -185,4 +185,14 @@ join/leave/disconnect/reconnect/seat/ready（满员自动开局）全部经 `roo
 
 ## 16. 本地模式下线后的线上复验（demo.game.e-du.cn）
 
-（部署后填写）
+部署 commit `4efbd11` 后重跑线上验收（真实公网链路），全部通过：
+
+| 套件 | 结果 |
+|---|---|
+| platform-regression（11 入口 + 无本地按钮残留 + 返回大厅） | 13/13 |
+| gomoku-dual（含悔棋/换先/越权/完整对局） | 8/8 |
+| grid-dual（井字棋/四子棋/黑白棋完整对局） | 25/25 |
+| games-smoke（权威房冒烟） | EXIT=0 |
+
+其余 6 款游戏（跳棋/飞行棋/大富翁/斗地主/21点/德州）本轮零改动，
+线上验收沿用第 10 节结论；服务 health ok，无错误日志。
