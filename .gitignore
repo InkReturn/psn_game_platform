@@ -1,6 +1,4 @@
 node_modules/
 outputs/
-
 .playwright-cli/
 providers.yml
-*.png
