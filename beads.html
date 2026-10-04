@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>赛博拼豆 · LinkPlay</title>
+  <link rel="stylesheet" href="beads.css" />
+  <script defer src="beads-model.js"></script>
+  <script defer src="beads-store.js"></script>
+  <script defer src="beads-app.js"></script>
+</head>
+<body>
+  <main class="studio">
+    <header class="studio-header">
+      <a class="back-link" href="index.html">返回游戏大厅</a>
+      <h1>赛博拼豆</h1>
+      <span id="saveStatus" role="status" aria-live="polite">正在读取</span>
+      <button id="pngBtn" class="primary">导出 PNG</button>
+    </header>
+    <section id="recovery" class="recovery" hidden aria-label="存档恢复">
+      <p id="recoveryMessage"></p>
+      <div class="row"><button id="rawBtn" hidden>导出原数据</button><button id="rebuildBtn" hidden>重建存档</button><button id="reloadBtn" hidden>重载存档</button><button id="retryBtn" hidden>重试保存</button></div>
+    </section>
+    <p id="notice" role="alert" hidden></p>
+    <div class="workspace">
+      <aside class="materials" aria-label="色盘与工具">
+        <div class="section-heading"><h2>豆子色盘</h2><span id="selectedColor">#7768D8</span></div>
+        <div id="palette" class="palette" aria-label="选色"></div>
+        <label class="custom-color">自选颜色<input id="customColor" type="color" value="#7768d8" /></label>
+        <div id="tools" class="tools" aria-label="工具">
+          <button data-tool="paint" aria-pressed="true" title="画笔 (B)">画笔</button>
+          <button data-tool="erase" aria-pressed="false" title="橡皮擦 (E)">橡皮擦</button>
+          <button data-tool="fill" aria-pressed="false" title="填充 (F)">填充</button>
+          <button data-tool="pick" aria-pressed="false" title="取色 (I)">取色</button>
+        </div>
+        <div class="row"><button id="undoBtn" title="Ctrl / ⌘ + Z" disabled>撤销</button><button id="redoBtn" title="Ctrl / ⌘ + Shift + Z" disabled>重做</button></div>
+        <section class="inventory"><h2>用豆清单</h2><div id="counts"></div></section>
+      </aside>
+      <section class="workbench" aria-label="拼豆工作台">
+        <div class="work-heading"><label>作品名称<input id="workName" maxlength="60" aria-label="作品名称" /></label><span id="dimensions"></span></div>
+        <div id="boardViewport" class="board-viewport"><canvas id="beadBoard" width="768" height="768" tabindex="0" role="application" aria-label="拼豆画板：方向键移动，空格放豆，Delete 擦除"></canvas></div>
+        <div class="bench-footer"><span id="beadTotal"></span><div class="row"><label class="zoom">缩放<select id="zoom"><option value="1">适合画板</option><option value="2">200%</option><option value="3">300%</option></select></label><button id="previewBtn" aria-pressed="false">像素预览</button></div></div>
+      </section>
+      <aside class="collection" aria-label="作品管理">
+        <div class="section-heading"><h2>我的作品</h2><span id="workCount"></span></div>
+        <div class="new-work"><label>画板尺寸<select id="newSize"><option>16</option><option selected>24</option><option>32</option><option>48</option><option>64</option></select></label><button id="newBtn" class="primary">新建作品</button></div>
+        <div id="works" class="works"></div>
+        <div class="row"><button id="duplicateBtn">复制作品</button><button id="deleteBtn">删除</button></div>
+        <section class="templates"><h2>模板</h2><div class="row"><button data-template="garden">像素花园</button><button data-template="heart">小小心意</button></div></section>
+        <section class="backups"><h2>存档</h2><button id="backupBtn">备份存档</button><button id="exportWorkBtn">导出当前作品</button><button id="importBtn">导入存档</button><input id="importFile" type="file" accept=".json,application/json" hidden /></section>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

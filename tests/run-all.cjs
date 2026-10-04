@@ -49,7 +49,9 @@ const SUITES = [
   { file: "tests/landlord-dual.cjs", label: "斗地主三浏览器联机验收（叫分/出牌/隐私/完整一局）" },
   { file: "tests/blackjack-dual.cjs", label: "21 点双浏览器联机验收（要牌/停牌/结算/隐私）" },
   { file: "tests/texas-dual.cjs", label: "德州扑克双浏览器联机验收（下注/摊牌/弃牌获胜/隐私）" },
-  { file: "tests/platform-regression.cjs", label: "全平台回归（11 入口/页面健康/返回大厅/本地模式）" },
+  { file: "tests/beads-model.cjs", label: "拼豆模型与存档契约单元测试" },
+  { file: "tests/beads-browser.cjs", label: "拼豆真实浏览器操作与本地存档验收" },
+  { file: "tests/platform-regression.cjs", label: "全平台回归（12 入口/页面健康/返回大厅/在线游戏边界）" },
 ];
 
 /** 被测服务器进程。 */

@@ -127,7 +127,7 @@ async function waitForServer(timeoutMs = 20000) {
 
   // 2. 大厅：收集全部游戏入口。
   const entries = [];
-  await check("大厅可打开且包含全部 11 款游戏入口", async () => {
+  await check("大厅可打开且包含全部 12 款游戏入口", async () => {
     const consoleErrors = [];
     const onError = (msg) => {
       if (msg.type() === "error") consoleErrors.push(msg.text());
@@ -137,9 +137,9 @@ async function waitForServer(timeoutMs = 20000) {
     page.off("console", onError);
     assertEq(consoleErrors, [], "大厅 console error");
     const links = await page.$$eval(".lobby-game", (nodes) => nodes.map((node) => node.getAttribute("href")));
-    assertEq(links.length, 11, `应有 11 个游戏入口，实际 ${links.length}`);
+    assertEq(links.length, 12, `应有 12 个游戏入口，实际 ${links.length}`);
     entries.push(...links);
-    const expected = ["gomoku.html", "tictactoe.html", "reversi.html", "connect4.html", "monopoly.html", "ludo.html", "checkers.html", "animal-chess.html", "texas.html", "blackjack.html", "landlord.html"];
+    const expected = ["gomoku.html", "tictactoe.html", "reversi.html", "connect4.html", "monopoly.html", "ludo.html", "checkers.html", "animal-chess.html", "texas.html", "blackjack.html", "landlord.html", "beads.html"];
     assertEq([...links].sort(), [...expected].sort(), "入口清单一致");
   });
 

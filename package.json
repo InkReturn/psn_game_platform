@@ -7,7 +7,8 @@
     "start": "node server.js",
     "test": "node tests/run-all.cjs",
     "test:protocol": "node tests/server-protocol.cjs",
-    "test:dual": "node tests/gomoku-dual.cjs"
+    "test:dual": "node tests/gomoku-dual.cjs",
+    "test:beads": "node --test tests/beads-model.cjs && node tests/beads-browser.cjs"
   },
   "keywords": [],
   "author": "",
