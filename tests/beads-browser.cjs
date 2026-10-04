@@ -152,8 +152,8 @@ async function main() {
   try {
     await startServer(); browser = await chromium.launch({ headless: true, args: ["--host-resolver-rules=MAP linkplay.test 127.0.0.1", "--no-proxy-server"] });
     const { ctx, page } = await context(); let blankId, firstId, backupBytes, archiveBefore;
-    await check("大厅保留 12 入口并进入拼豆", /** @returns {Promise<void>} 验证导航。 */ async function () { // 1. 点击真实大厅入口。
-      await page.goto(base + "/index.html"); assert.equal(await page.locator(".lobby-game").count(), 12); await page.click('a[href="beads.html"]'); await page.waitForFunction(hookReady); await saved(page);
+    await check("大厅保留 13 入口并进入拼豆", /** @returns {Promise<void>} 验证导航。 */ async function () { // 1. 点击真实大厅入口。
+      await page.goto(base + "/index.html"); assert.equal(await page.locator(".lobby-game").count(), 13); await page.click('a[href="beads.html"]'); await page.waitForFunction(hookReady); await saved(page);
       const s = await state(page); firstId = s.archive.activeId; assert.equal(active(s).name, "像素花园"); assert.ok(active(s).cells.some(Boolean));
     });
     await check("新建与名称即时保存", /** @returns {Promise<void>} 验证空板与名称。 */ async function () { // 1. 真实选择尺寸并编辑名称。

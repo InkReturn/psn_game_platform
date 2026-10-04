@@ -489,7 +489,7 @@ async function scenario(name, f) {
       break;
     }
     case "A01 大厅第十二入口及页面初始90秒": {
-      await f.a.goto(f.base + "/index.html"); assert.equal(await f.a.locator(".lobby-game").count(), 12);
+      await f.a.goto(f.base + "/index.html"); assert.equal(await f.a.locator(".lobby-game").count(), 13);
       await f.a.locator('.lobby-game[href="gold-miner.html"]').click();
       await f.a.waitForFunction(/** 确认从大厅跳转后游戏页面观测钩子已安装。
         * @returns {boolean} 钩子为函数时为真；仅检查全局类型，不调用钩子，无副作用或预期异常。
