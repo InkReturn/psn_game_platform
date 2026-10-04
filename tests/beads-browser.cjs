@@ -79,10 +79,11 @@ function active(s) { // 1. 查找当前标识。
   for (const work of s.archive.works) if (work.id === s.archive.activeId) return work;
 }
 /** 计算板格的屏幕中心。@param {object} page Playwright 页面。@param {number} x 零起点列。@param {number} y 零起点行。@returns {Promise<object>} 鼠标/触摸屏幕坐标。 */
-async function cell(page, x, y) { // 1. 按实际缩放尺寸与留边计算。
+async function cell(page, x, y) { // 1. 按实际缩放尺寸与留边计算，矩形板长宽各自换算。
   await page.locator("#beadBoard").scrollIntoViewIfNeeded();
-  const size = active(await state(page)).size, box = await page.locator("#beadBoard").boundingBox(), pitch = box.width / (size + 2);
-  return { x: box.x + (x + 1.5) * pitch, y: box.y + (y + 1.5) * pitch };
+  const work = active(await state(page)), box = await page.locator("#beadBoard").boundingBox();
+  const px = box.width / (work.width + 2), py = box.height / (work.height + 2);
+  return { x: box.x + (x + 1.5) * px, y: box.y + (y + 1.5) * py };
 }
 /** 点击板格。@param {object} page Playwright 页面。@param {number} x 零起点列。@param {number} y 零起点行。@returns {Promise<void>} 完成真实鼠标点击。 */
 async function paint(page, x, y) { // 1. 使用实际鼠标事件，不直接修改模型。
@@ -137,6 +138,14 @@ function blockedBy(reason) { // 1. 精确比对而不是只看提示文字。
 function noOverflow() { // 1. 板内滚动允许，但页面不能横向溢出。
   return document.documentElement.scrollWidth <= window.innerWidth;
 }
+/** 浏览器侧检查板内是否可滚动。@returns {boolean} 画板内容超出视口才算可滚动。 */
+function boardScrollable() { // 1. 任一方向溢出即需要板内滚动。
+  const v = document.getElementById("boardViewport"); return v.scrollWidth > v.clientWidth + 1 || v.scrollHeight > v.clientHeight + 1;
+}
+/** 浏览器侧读取视口滚动状态。@returns {object} 横纵滚动量，供平移前后对比。 */
+function scrollState() { // 1. 只读，不修改布局。
+  const v = document.getElementById("boardViewport"); return { x: v.scrollLeft, y: v.scrollTop };
+}
 /** 接受确认框。@param {object} dialog 浏览器原生确认框。@returns {Promise<void>} 明确模拟用户确认。 */
 async function accept(dialog) { // 1. 只注册到当前一次测试操作。
   await dialog.accept();
@@ -156,8 +165,9 @@ async function main() {
       await page.goto(base + "/index.html"); assert.equal(await page.locator(".lobby-game").count(), 13); await page.click('a[href="beads.html"]'); await page.waitForFunction(hookReady); await saved(page);
       const s = await state(page); firstId = s.archive.activeId; assert.equal(active(s).name, "像素花园"); assert.ok(active(s).cells.some(Boolean));
     });
-    await check("新建与名称即时保存", /** @returns {Promise<void>} 验证空板与名称。 */ async function () { // 1. 真实选择尺寸并编辑名称。
-      await page.selectOption("#newSize", "16"); await page.click("#newBtn"); blankId = (await state(page)).archive.activeId;
+    await check("新建与名称即时保存", /** @returns {Promise<void>} 验证空板与名称。 */ async function () { // 1. 真实填写长宽并编辑名称。
+      await page.fill("#newWidth", "16"); await page.fill("#newHeight", "16"); await page.click("#newBtn"); blankId = (await state(page)).archive.activeId;
+      const blank = active(await state(page)); assert.equal(blank.width, 16); assert.equal(blank.height, 16); assert.equal(blank.cells.length, 256);
       await page.fill("#workName", "触摸花园 <作品>"); await saved(page); assert.equal(active(await state(page)).name, "触摸花园 <作品>"); assert.ok(active(await state(page)).cells.every(empty));
     });
     await check("选色、稀疏拖动补点、一次撤销", /** @returns {Promise<void>} 验证连续笔画。 */ async function () { // 1. 一次长跨度移动，检查中间格和历史单位。
@@ -176,8 +186,21 @@ async function main() {
       await page.click('[data-color="#6CBEAF"]'); await page.click('[data-tool="fill"]'); await paint(page, 15, 15); await saved(page); assert.equal(active(await state(page)).cells[255], "#6CBEAF");
       await page.click("#undoBtn"); await page.click('[data-tool="pick"]'); await paint(page, 2, 0); assert.equal((await state(page)).color, "#F27593");
     });
+    await check("自定义长宽矩形画板", /** @returns {Promise<void>} 验证任意长宽。 */ async function () { // 1. 非预设尺寸的矩形板可建可画。
+      await page.fill("#newWidth", "48"); await page.fill("#newHeight", "20"); await page.click("#newBtn"); await saved(page);
+      const rect = active(await state(page)); assert.equal(rect.width, 48); assert.equal(rect.height, 20); assert.equal(rect.cells.length, 960);
+      assert.equal(await page.locator("#dimensions").innerText(), "48 × 20");
+      await page.click('[data-color="#6CBEAF"]'); await page.click('[data-tool="paint"]'); await paint(page, 47, 19); await saved(page);
+      assert.equal(active(await state(page)).cells[19 * 48 + 47], "#6CBEAF");
+      // 2. 越界长宽被拒绝且不产生新作品。
+      const count = (await state(page)).archive.works.length;
+      await page.fill("#newWidth", "3"); await page.click("#newBtn");
+      await page.locator("#notice").waitFor({ state: "visible" });
+      assert.equal((await state(page)).archive.works.length, count);
+      await page.click(`[data-work="${blankId}"]`); await saved(page);
+    });
     await check("键盘移动、放豆、擦除、快捷历史", /** @returns {Promise<void>} 验证桌面键盘。 */ async function () { // 1. 焦点在画板才处理编辑键。
-      await page.locator("#beadBoard").focus(); await page.keyboard.press("b"); await page.keyboard.press("ArrowDown"); const point = (await state(page)).cursor;
+      await page.click('[data-color="#F27593"]'); await page.locator("#beadBoard").focus(); await page.keyboard.press("b"); await page.keyboard.press("ArrowDown"); const point = (await state(page)).cursor;
       await page.keyboard.press("Space"); await saved(page); assert.equal(active(await state(page)).cells[point.y * 16 + point.x], "#F27593");
       await page.keyboard.press("Delete"); await saved(page); assert.equal(active(await state(page)).cells[point.y * 16 + point.x], null);
       await page.keyboard.press("Control+z"); await saved(page); assert.equal(active(await state(page)).cells[point.y * 16 + point.x], "#F27593");
@@ -197,13 +220,13 @@ async function main() {
     await check("整库备份在新浏览器上下文安全追加恢复", /** @returns {Promise<void>} 验证重新导入。 */ async function () { // 1. 用实际下载文件进行另一上下文的文件上传。
       backupBytes = await downloaded(p, "#backupBtn", "beads-backup.json"); const imported = await context(); await open(imported.page); await saved(imported.page);
       await imported.page.setInputFiles("#importFile", { name: "backup.json", mimeType: "application/json", buffer: backupBytes });
-      await imported.page.waitForFunction(workCountIs, 3); await saved(imported.page);
+      await imported.page.waitForFunction(workCountIs, 4); await saved(imported.page);
       const original = JSON.parse(backupBytes), restored = (await state(imported.page)).archive;
-      assert.deepEqual(restored.works.slice(1).map(workContent), original.works.map(workContent)); assert.notEqual(restored.works[1].id, original.works[0].id); assert.equal(restored.works.length, 3);
+      assert.deepEqual(restored.works.slice(1).map(workContent), original.works.map(workContent)); assert.notEqual(restored.works[1].id, original.works[0].id); assert.equal(restored.works.length, 4);
     });
     await check("单幅备份也可导入", /** @returns {Promise<void>} 验证单幅契约。 */ async function () { // 1. 下载当前作品后追加副本。
       const single = await downloaded(p, "#exportWorkBtn", "beads-single.json"), before = active(await state(p));
-      await p.setInputFiles("#importFile", { name: "single.json", mimeType: "application/json", buffer: single }); await p.waitForFunction(workCountIs, 3); await saved(p);
+      await p.setInputFiles("#importFile", { name: "single.json", mimeType: "application/json", buffer: single }); await p.waitForFunction(workCountIs, 4); await saved(p);
       assert.deepEqual(workContent(active(await state(p))), workContent(before));
     });
     await check("无效、超大文件不破坏既有作品", /** @returns {Promise<void>} 验证失败导入原子性。 */ async function () { // 1. 记录原库后测试两种拒绝。
@@ -217,10 +240,30 @@ async function main() {
       p.once("dialog", accept); await p.click("#deleteBtn"); await saved(p); assert.equal((await state(p)).archive.works.length, before);
       await p.click('[data-template="heart"]'); await saved(p); assert.equal(active(await state(p)).name, "小小心意"); assert.equal((await state(p)).archive.works.length, before + 1);
     });
-    await check("64 格缩放与像素预览", /** @returns {Promise<void>} 验证大板不溢出。 */ async function () { // 1. 放大画板只产生板内滚动。
-      await p.selectOption("#newSize", "64"); await p.click("#newBtn"); await p.selectOption("#zoom", "3"); await p.click("#previewBtn"); await saved(p);
-      assert.equal(active(await state(p)).size, 64); assert.equal(await p.locator("#previewBtn").getAttribute("aria-pressed"), "true"); assert.ok(await p.evaluate(noOverflow));
-      await p.selectOption("#zoom", "1"); await p.click("#previewBtn"); await p.click(`[data-work="${firstId}"]`); await saved(p); await p.screenshot({ path: path.join(OUT, "beads-desktop.png"), fullPage: true });
+    await check("滚轮缩放、拖动平移与像素预览", /** @returns {Promise<void>} 验证鼠标视图操作。 */ async function () { // 1. 缩放平移只产生板内滚动。
+      await p.fill("#newWidth", "64"); await p.fill("#newHeight", "64"); await p.click("#newBtn"); await saved(p);
+      assert.equal(active(await state(p)).width, 64);
+      // 1.1 适合画板：无板内滚动，标签为 100%。
+      await p.click("#zoomFitBtn"); assert.equal(await p.locator("#zoomLabel").innerText(), "100%");
+      assert.equal(await p.evaluate(boardScrollable), false);
+      // 1.2 滚轮以指针为锚点放大，出现板内滚动。
+      const box = await p.locator("#beadBoard").boundingBox();
+      const ax = box.x + box.width * 0.3, ay = box.y + box.height * 0.3;
+      await p.mouse.move(ax, ay); await p.mouse.wheel(0, -300); await p.mouse.wheel(0, -300);
+      assert.notEqual(await p.locator("#zoomLabel").innerText(), "100%"); assert.equal(await p.evaluate(boardScrollable), true);
+      // 1.3 右键拖动平移改变滚动位置。
+      const before = await p.evaluate(scrollState);
+      await p.mouse.down({ button: "right" }); await p.mouse.move(ax - 100, ay - 60, { steps: 6 }); await p.mouse.up({ button: "right" });
+      const after = await p.evaluate(scrollState);
+      assert.ok(after.x > before.x && after.y > before.y, `右键平移未生效: ${JSON.stringify({ before, after })}`);
+      // 1.4 中键拖动同样平移。
+      await p.mouse.move(ax - 100, ay - 60); await p.mouse.down({ button: "middle" }); await p.mouse.move(ax - 40, ay - 20, { steps: 4 }); await p.mouse.up({ button: "middle" });
+      const middle = await p.evaluate(scrollState);
+      assert.ok(middle.x !== after.x || middle.y !== after.y, `中键平移未生效: ${JSON.stringify({ after, middle })}`);
+      // 1.5 恢复适合画板并验证像素预览。
+      await p.click("#zoomFitBtn"); assert.equal(await p.locator("#zoomLabel").innerText(), "100%"); assert.equal((await p.evaluate(scrollState)).x, 0);
+      await p.click("#previewBtn"); await saved(p); assert.equal(await p.locator("#previewBtn").getAttribute("aria-pressed"), "true"); assert.ok(await p.evaluate(noOverflow));
+      await p.click("#previewBtn"); await p.click(`[data-work="${firstId}"]`); await saved(p); await p.screenshot({ path: path.join(OUT, "beads-desktop.png"), fullPage: true });
     });
     await check("损坏存档保留、原文下载与确认重建", /** @returns {Promise<void>} 验证损坏保护。 */ async function () { // 1. 损坏数据打开后即使继续编辑也不可覆盖。
       const broken = await context(); await open(broken.page); await saved(broken.page); await broken.page.evaluate(corruptStorage); await broken.page.reload(); await broken.page.waitForFunction(hookReady);
@@ -264,16 +307,38 @@ async function main() {
       const states = [await state(tabs.page), await state(second)]; assert.equal(states.filter(conflicted).length, 1);
       const archive = M.parseArchive(await tabs.page.evaluate(rawStorage)); assert.ok(["并发甲", "并发乙"].includes(archive.works[0].name));
     });
-    await check("375px 真实触摸连续拖动、无页面横向溢出", /** @returns {Promise<void>} 验证手机指针。 */ async function () { // 1. 模拟真实 Chromium 触摸输入而非直接派发 DOM 事件。
+    await check("375px 真实触摸连续拖动、捏合缩放与双指平移", /** @returns {Promise<void>} 验证手机指针与手势。 */ async function () { // 1. 模拟真实 Chromium 触摸输入而非直接派发 DOM 事件。
       const mobile = await context({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }); await open(mobile.page); await saved(mobile.page);
-      await mobile.page.selectOption("#newSize", "16"); await mobile.page.tap("#newBtn"); await mobile.page.tap('[data-color="#7768D8"]'); await mobile.page.locator("#beadBoard").scrollIntoViewIfNeeded();
+      await mobile.page.fill("#newWidth", "16"); await mobile.page.fill("#newHeight", "16"); await mobile.page.tap("#newBtn"); await mobile.page.tap('[data-color="#7768D8"]'); await mobile.page.locator("#beadBoard").scrollIntoViewIfNeeded();
       const start = await cell(mobile.page, 0, 0), end = await cell(mobile.page, 15, 0), session = await mobile.ctx.newCDPSession(mobile.page);
       await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [start] }); await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [end] }); await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); await saved(mobile.page);
       assert.deepEqual(active(await state(mobile.page)).cells.slice(0, 16), Array(16).fill("#7768D8")); assert.ok(await mobile.page.evaluate(noOverflow));
       // 2.1 立即触摸切换工具，检验 pointerup 选择不依赖拖动后可能被抑制的原生 click；不加手势等待补丁。
       await mobile.page.tap('[data-tool="erase"]'); await mobile.page.waitForFunction(selectedTool, "erase"); const erase = await cell(mobile.page, 5, 0); assert.equal((await state(mobile.page)).tool, "erase"); await mobile.page.touchscreen.tap(erase.x, erase.y); await saved(mobile.page); assert.equal(active(await state(mobile.page)).cells[5], null);
       await mobile.page.tap("#undoBtn"); await saved(mobile.page); assert.equal(active(await state(mobile.page)).cells[5], "#7768D8");
-      await mobile.page.selectOption("#zoom", "3"); assert.ok(await mobile.page.evaluate(noOverflow)); await mobile.page.selectOption("#zoom", "1"); await mobile.page.click(`[data-work="${(await state(mobile.page)).archive.works[0].id}"]`); await saved(mobile.page);
+      // 2.2 双指捏合放大：手势起点的第一指不落豆，出现板内滚动且页面不横向溢出。
+      const boardBox = await mobile.page.locator("#beadBoard").boundingBox();
+      const midX = boardBox.x + boardBox.width / 2, midY = boardBox.y + boardBox.height / 2;
+      const cellsBeforePinch = active(await state(mobile.page)).cells.slice();
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: midX - 30, y: midY, id: 1 }, { x: midX + 30, y: midY, id: 2 }] });
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: midX - 90, y: midY, id: 1 }, { x: midX + 90, y: midY, id: 2 }] });
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      assert.notEqual(await mobile.page.locator("#zoomLabel").innerText(), "100%"); assert.equal(await mobile.page.evaluate(boardScrollable), true); assert.ok(await mobile.page.evaluate(noOverflow));
+      assert.deepEqual(active(await state(mobile.page)).cells, cellsBeforePinch);
+      // 2.3 双指整体拖动平移画板，间距不变只移动视口。
+      const beforePan = await mobile.page.evaluate(scrollState);
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: midX - 40, y: midY, id: 1 }, { x: midX + 40, y: midY, id: 2 }] });
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: midX - 100, y: midY - 50, id: 1 }, { x: midX - 20, y: midY - 50, id: 2 }] });
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      const afterPan = await mobile.page.evaluate(scrollState);
+      assert.ok(afterPan.x > beforePan.x || afterPan.y > beforePan.y, `双指平移未生效: ${JSON.stringify({ beforePan, afterPan })}`);
+      assert.deepEqual(active(await state(mobile.page)).cells, cellsBeforePinch);
+      // 2.4 适合画板复位后单指仍可画豆。
+      await mobile.page.tap("#zoomFitBtn"); assert.equal(await mobile.page.locator("#zoomLabel").innerText(), "100%"); assert.equal((await mobile.page.evaluate(scrollState)).x, 0);
+      await mobile.page.tap('[data-tool="paint"]'); await mobile.page.waitForFunction(selectedTool, "paint");
+      const solo = await cell(mobile.page, 10, 10); await mobile.page.touchscreen.tap(solo.x, solo.y); await saved(mobile.page);
+      assert.equal(active(await state(mobile.page)).cells[10 * 16 + 10], "#7768D8");
+      await mobile.page.click(`[data-work="${(await state(mobile.page)).archive.works[0].id}"]`); await saved(mobile.page);
       await mobile.page.screenshot({ path: path.join(OUT, "beads-mobile.png"), fullPage: true }); await session.detach();
     });
     await check("实际关闭浏览器后持久化恢复", /** @returns {Promise<void>} 验证磁盘浏览器配置。 */ async function () { // 1. 使用本任务 ignored 输出下的独立持久化 profile。
@@ -302,7 +367,7 @@ async function main() {
       assert.deepEqual(errors, []);
     });
     // 2. 防止意外零用例或数量缩水被当成成功。
-    assert.equal(passed, 24); console.log(`\n${passed}/24 browser acceptance cases passed`);
+    assert.equal(passed, 25); console.log(`\n${passed}/25 browser acceptance cases passed`);
   } finally {
     // 3. 只清理本脚本创建的浏览器与临时服务。
     for (const ctx of contexts) await ctx.close(); if (browser) await browser.close();

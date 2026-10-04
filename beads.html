@@ -38,12 +38,19 @@
       </aside>
       <section class="workbench" aria-label="拼豆工作台">
         <div class="work-heading"><label>作品名称<input id="workName" maxlength="60" aria-label="作品名称" /></label><span id="dimensions"></span></div>
-        <div id="boardViewport" class="board-viewport"><canvas id="beadBoard" width="768" height="768" tabindex="0" role="application" aria-label="拼豆画板：方向键移动，空格放豆，Delete 擦除"></canvas></div>
-        <div class="bench-footer"><span id="beadTotal"></span><div class="row"><label class="zoom">缩放<select id="zoom"><option value="1">适合画板</option><option value="2">200%</option><option value="3">300%</option></select></label><button id="previewBtn" aria-pressed="false">像素预览</button></div></div>
+        <div id="boardViewport" class="board-viewport"><canvas id="beadBoard" width="768" height="768" tabindex="0" role="application" aria-label="拼豆画板：方向键移动，空格放豆，Delete 擦除；滚轮缩放，右键或中键拖动平移"></canvas></div>
+        <div class="bench-footer"><span id="beadTotal"></span><div class="row zoom-controls"><span id="zoomLabel" aria-live="polite">100%</span><button id="zoomOutBtn" title="缩小（-）">−</button><button id="zoomInBtn" title="放大（+）">＋</button><button id="zoomFitBtn" title="适合画板（0）">适合画板</button><button id="previewBtn" aria-pressed="false">像素预览</button></div></div>
       </section>
       <aside class="collection" aria-label="作品管理">
         <div class="section-heading"><h2>我的作品</h2><span id="workCount"></span></div>
-        <div class="new-work"><label>画板尺寸<select id="newSize"><option>16</option><option selected>24</option><option>32</option><option>48</option><option>64</option></select></label><button id="newBtn" class="primary">新建作品</button></div>
+        <div class="new-work">
+          <div class="dim-inputs">
+            <label>宽<input id="newWidth" type="number" min="4" max="128" step="1" value="24" inputmode="numeric" aria-label="画板宽度（格）" /></label>
+            <label>高<input id="newHeight" type="number" min="4" max="128" step="1" value="24" inputmode="numeric" aria-label="画板高度（格）" /></label>
+          </div>
+          <div class="presets" aria-label="常用尺寸"><button data-preset="16" title="16×16">16²</button><button data-preset="24" title="24×24">24²</button><button data-preset="32" title="32×32">32²</button><button data-preset="48" title="48×48">48²</button><button data-preset="64" title="64×64">64²</button></div>
+          <button id="newBtn" class="primary">新建作品</button>
+        </div>
         <div id="works" class="works"></div>
         <div class="row"><button id="duplicateBtn">复制作品</button><button id="deleteBtn">删除</button></div>
         <section class="templates"><h2>模板</h2><div class="row"><button data-template="garden">像素花园</button><button data-template="heart">小小心意</button></div></section>

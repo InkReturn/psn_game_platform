@@ -5,6 +5,7 @@ const BeadModel = (function createModel() {
   // 1. 定义唯一存档契约与业务上限，组装下方纯函数。
   const FORMAT = "linkplay-beads", VERSION = 1, STORAGE_KEY = "linkplay.beads.v1";
   const SIZES = Object.freeze([16, 24, 32, 48, 64]);
+  const MIN_DIM = 4, MAX_DIM = 128;
   const MAX_WORKS = 30, MAX_FILE_BYTES = 2 * 1024 * 1024;
   const PALETTE = Object.freeze(["#202A43", "#FFFFFF", "#B7C1D4", "#7768D8", "#A79AEA", "#D9CFF5", "#F27593", "#C4496B", "#F9B4C6", "#6CBEAF", "#348E81", "#B8E3D7", "#F2C85B", "#D99E3D", "#F8E6A5", "#6DA9DC", "#3674B1", "#B9D9EF", "#ED9568", "#BA623D", "#F7C7A5", "#7FA268", "#4B704B", "#C5D7A7"]);
 
@@ -18,27 +19,33 @@ const BeadModel = (function createModel() {
     // 1. 不接受 CSS 表达式或缩写。
     requireValid(color === null || (typeof color === "string" && /^#[0-9A-Fa-f]{6}$/.test(color)), "颜色格式无效");
   }
-  /** 创建独立空白作品。@param {string} id 唯一标识，1–100 字符。@param {string} name 名称，1–60 字符。@param {number} size 合法方板边长。@param {number} now 创建时间的非负整数毫秒。@returns {object} 新作品；非法参数抛错。 */
-  function createWork(id, name = "未命名作品", size = 24, now = Date.now()) {
-    // 1. 分配内存前拒绝非契约尺寸，再构造独立格子与时间信息。
-    requireValid(SIZES.includes(size), "画板尺寸无效");
-    const work = { id, name, size, cells: Array(size * size).fill(null), createdAt: now, updatedAt: now };
+  /** 创建独立空白作品。@param {string} id 唯一标识，1–100 字符。@param {string} name 名称，1–60 字符。@param {number} width 画板宽度格数，4–128 整数。@param {number} [height] 画板高度格数，4–128 整数，缺省与宽相同。@param {number} [now] 创建时间的非负整数毫秒。@returns {object} 新作品；非法参数抛错。 */
+  function createWork(id, name = "未命名作品", width = 24, height = width, now = Date.now()) {
+    // 1. 分配内存前拒绝非整数长宽，再构造独立格子与时间信息。
+    requireValid(Number.isInteger(width) && Number.isInteger(height), "画板尺寸无效");
+    const work = { id, name, width, height, cells: Array(width * height).fill(null), createdAt: now, updatedAt: now };
     // 2. 复用完整校验保证所有入口遵守同一契约。
     return validateWork(work);
   }
   /** 校验并复制作品，只返回受支持字段。@param {*} work 外部作品对象。@returns {object} 隔离副本；格式错误抛错，无输入副作用。 */
   function validateWork(work) {
-    // 1. 校验结构、标识、名称与尺寸。
+    // 1. 校验结构、标识与名称。
     requireValid(work && typeof work === "object" && !Array.isArray(work), "作品格式无效");
     requireValid(typeof work.id === "string" && work.id.length > 0 && work.id.length <= 100, "作品标识无效");
     requireValid(typeof work.name === "string" && work.name.trim().length > 0 && work.name.length <= 60, "名称须为 1–60 字符");
-    requireValid(SIZES.includes(work.size), "画板尺寸无效");
-    requireValid(Array.isArray(work.cells) && work.cells.length === work.size * work.size, "格子数量无效");
-    // 2. 校验每格颜色与时间，拒绝稀疏数组。
+    // 2. 校验画板长宽：优先 width/height；旧版方板仅有 size 时归一为等宽高，非法值一律拒绝。
+    let width = work.width, height = work.height;
+    if (!Number.isInteger(width) || !Number.isInteger(height)) {
+      if (Number.isInteger(work.size)) width = height = work.size;
+      else { width = height = Number.NaN; }
+    }
+    requireValid(Number.isInteger(width) && width >= MIN_DIM && width <= MAX_DIM && height >= MIN_DIM && height <= MAX_DIM, "画板尺寸无效");
+    requireValid(Array.isArray(work.cells) && work.cells.length === width * height, "格子数量无效");
+    // 3. 校验每格颜色与时间，拒绝稀疏数组。
     for (let i = 0; i < work.cells.length; i++) validateColor(work.cells[i]);
     requireValid(Number.isSafeInteger(work.createdAt) && work.createdAt >= 0 && Number.isSafeInteger(work.updatedAt) && work.updatedAt >= work.createdAt, "作品日期无效");
-    // 3. 丢弃未知字段，阻止外部引用修改内存。
-    return { id: work.id, name: work.name, size: work.size, cells: work.cells.slice(), createdAt: work.createdAt, updatedAt: work.updatedAt };
+    // 4. 丢弃未知字段，阻止外部引用修改内存。
+    return { id: work.id, name: work.name, width, height, cells: work.cells.slice(), createdAt: work.createdAt, updatedAt: work.updatedAt };
   }
   /** 校验整库存档。@param {*} archive 外部存档。@returns {object} 校验后的隔离副本；非法版本、重复标识等抛错。 */
   function validateArchive(archive) {
@@ -88,7 +95,7 @@ const BeadModel = (function createModel() {
   }
   /** 校验格坐标。@param {object} work 合法作品。@param {object} point 格坐标 {x,y}，零起点。@returns {void} 越界或非整数抛错。 */
   function validatePoint(work, point) { // 1. 拒绝板外与非整数坐标。
-    requireValid(point && Number.isInteger(point.x) && Number.isInteger(point.y) && point.x >= 0 && point.y >= 0 && point.x < work.size && point.y < work.size, "格子坐标越界");
+    requireValid(point && Number.isInteger(point.x) && Number.isInteger(point.y) && point.x >= 0 && point.y >= 0 && point.x < work.width && point.y < work.height, "格子坐标越界");
   }
   /** 直线补点放豆。@param {object} work 将原地修改 cells 的作品。@param {object} from 起始格。@param {object} to 终止格。@param {string|null} color 六位颜色，null 擦除。@returns {number} 改变的格数；非法参数抛错。 */
   function paintLine(work, from, to, color) {
@@ -99,7 +106,7 @@ const BeadModel = (function createModel() {
     const dx = Math.abs(to.x - x), dy = -Math.abs(to.y - y), sx = x < to.x ? 1 : -1, sy = y < to.y ? 1 : -1;
     let error = dx + dy;
     for (;;) {
-      const index = y * work.size + x;
+      const index = y * work.width + x;
       if (work.cells[index] !== color) { work.cells[index] = color; changed++; }
       if (x === to.x && y === to.y) break;
       const twice = 2 * error;
@@ -112,18 +119,18 @@ const BeadModel = (function createModel() {
   function floodFill(work, point, color) {
     // 1. 校验参数，相同颜色立即结束。
     validatePoint(work, point); validateColor(color);
-    const start = point.y * work.size + point.x, original = work.cells[start];
+    const start = point.y * work.width + point.x, original = work.cells[start];
     if (original === color) return 0;
     // 2. 入栈时标记，避免重复遍历；显式保护左右行界。
     const stack = [start]; work.cells[start] = color; let changed = 0;
     while (stack.length) {
-      const index = stack.pop(), x = index % work.size, y = Math.floor(index / work.size);
+      const index = stack.pop(), x = index % work.width, y = Math.floor(index / work.width);
       changed++;
       const neighbors = [];
       if (x > 0) neighbors.push(index - 1);
-      if (x < work.size - 1) neighbors.push(index + 1);
-      if (y > 0) neighbors.push(index - work.size);
-      if (y < work.size - 1) neighbors.push(index + work.size);
+      if (x < work.width - 1) neighbors.push(index + 1);
+      if (y > 0) neighbors.push(index - work.width);
+      if (y < work.height - 1) neighbors.push(index + work.width);
       for (const next of neighbors) if (work.cells[next] === original) { work.cells[next] = color; stack.push(next); }
     }
     return changed;
@@ -134,7 +141,7 @@ const BeadModel = (function createModel() {
     for (const color of work.cells) if (color !== null) counts[color] = (counts[color] || 0) + 1;
     return counts;
   }
-  return { FORMAT, VERSION, STORAGE_KEY, SIZES, PALETTE, MAX_WORKS, MAX_FILE_BYTES, createWork, validateWork, validateArchive, parseArchive, serializeArchive, exportWork, parseImport, paintLine, floodFill, countColors };
+  return { FORMAT, VERSION, STORAGE_KEY, SIZES, MIN_DIM, MAX_DIM, PALETTE, MAX_WORKS, MAX_FILE_BYTES, createWork, validateWork, validateArchive, parseArchive, serializeArchive, exportWork, parseImport, paintLine, floodFill, countColors };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = BeadModel;
 if (typeof window !== "undefined") window.BeadModel = BeadModel;
