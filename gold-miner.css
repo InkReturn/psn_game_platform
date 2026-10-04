@@ -1,0 +1,55 @@
+.gold-miner-page { --accent: #946009; --accent-dark: #714705; --warn: #a43b22; background: #e9e4db; }
+.gold-shell { display: grid; grid-template-columns: 292px minmax(0,1fr); gap: 26px; max-width: 1440px; margin: auto; padding: 28px; }
+.gold-sidebar, .gold-stage { min-width: 0; }
+.gold-sidebar { display: grid; gap: 20px; align-content: start; }
+.gold-sidebar .brand { gap: 12px; }
+.gold-sidebar h1 { font-size: 24px; margin: 0; }
+.gold-sidebar .brand-mark { background: #38291f; }
+.gold-sidebar .back-link { margin: 0; }
+.gold-sidebar .connection-panel { margin: 0; }
+.gold-sidebar .share-box { grid-template-columns: minmax(0,1fr) 52px; }
+.gold-sidebar .member-list { padding: 0; margin: 14px 0 0; }
+.gold-config { padding: 20px; background: #fff; border: 1px solid #d7cfc1; border-radius: 8px; display: grid; gap: 14px; }
+.gold-config h2 { margin: 0; font-size: 17px; }
+.gold-rule { margin: 0; color: #76664f; font-size: 12px; }
+.gold-miner-page button { min-height: 46px; }
+.gold-miner-page input, .gold-miner-page select, .gold-miner-page .back-link { min-height: 44px; }
+.gold-miner-page :focus-visible { outline: 3px solid #b17d19; outline-offset: 3px; }
+.gold-stage-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 8px 0 20px; }
+.gold-stage-header h2 { margin: 0 0 7px; font-size: 25px; }
+.gold-stage-header p { margin: 0; color: #76664f; font-size: 13px; }
+.gold-clock, .gold-wallet { display: grid; gap: 4px; }
+.gold-clock > span, .gold-wallet > span { color: #76664f; font-size: 12px; }
+.gold-clock strong { font-size: 32px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.gold-clock strong span { font-size: 13px; margin-left: 4px; }
+.gold-wallet strong { font-size: 32px; font-variant-numeric: tabular-nums; color: #81510a; line-height: 1.2; }
+.gold-play-area { position: relative; overflow: hidden; border: 3px solid #38291f; border-radius: 10px; background: #38291f; }
+#goldCanvas { width: 100%; height: auto; display: block; image-rendering: pixelated; }
+.gold-overlay { position: absolute; inset: 0 0 74px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #f5e8c7; background: #24180ab8; pointer-events: none; }
+.gold-overlay[hidden] { display: none; }
+.gold-overlay strong { font-size: clamp(28px,4vw,50px); text-shadow: 0 3px #38291f; }
+.gold-overlay span { font-size: 14px; }
+.gold-overlay.countdown { background: #24180a55; }
+.gold-overlay.countdown strong { font-size: 86px; color: #f2bc45; }
+.gold-action-bar { display: flex; gap: 16px; align-items: center; justify-content: space-between; min-height: 74px; padding: 12px 18px; background: #f5e8c7; }
+.gold-action-bar p { margin: 0; font-size: 13px; color: #6a4c2c; }
+#goldDrop { background: #f2bc45; border: 2px solid #8e5f10; color: #38291f; font-size: 20px; font-weight: 800; min-width: 155px; touch-action: manipulation; flex-shrink: 0; }
+#goldDrop:hover:not(:disabled) { background: #ffcf67; }
+#goldDrop kbd { font: inherit; font-size: 11px; margin-left: 7px; padding: 3px 5px; border: 1px solid #ae8033; border-radius: 3px; }
+.gold-error { padding: 10px 14px; background: #ffebe5; color: #912f18; border-radius: 6px; font-size: 13px; }
+.gold-results { margin-top: 22px; }
+.gold-ranking-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.gold-ranking-header h2 { margin: 0; font-size: 17px; }
+.gold-ranking-header > span { color: #76664f; font-size: 12px; }
+.gold-rankings { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; list-style: none; padding: 0; margin: 0; }
+.gold-ranking { display: grid; grid-template-columns: 24px minmax(0,1fr) auto; align-items: center; gap: 8px; padding: 12px; border: 1px solid #d7cfc1; border-radius: 6px; background: #fff; }
+.gold-ranking.self { border-color: #a77613; background: #fff4d5; }
+.gold-ranking .rank { color: #917126; font-weight: 800; }
+.gold-ranking .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.gold-ranking .value { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.gold-ranking.departed { opacity: .65; }
+.gold-ranking-empty { color: #76664f; font-size: 13px; grid-column: 1/-1; padding: 12px 0; }
+.gold-winner { font-size: 18px; font-weight: 800; color: #81510a; margin: 16px 0 0; }
+@media(max-width:1050px) { .gold-shell { grid-template-columns: 254px minmax(0,1fr); gap: 18px; padding: 18px; } .gold-rankings { grid-template-columns: repeat(2,minmax(0,1fr)); } .gold-wallet strong,.gold-clock strong { font-size: 27px; } }
+@media(max-width:760px) { .gold-shell { display: flex; flex-direction: column; padding: 14px; gap: 18px; } .gold-sidebar { gap: 14px; } .gold-sidebar .connection-panel { padding: 16px; } .gold-config { grid-template-columns: 1fr 1fr; padding: 16px; gap: 12px; } .gold-config h2,.gold-config #goldStart { grid-column: 1/-1; } .gold-config .gold-rule { grid-column: 1/-1; } .gold-stage-header { padding: 0 0 16px; gap: 8px; } .gold-stage-header h2 { font-size: 20px; } .gold-clock strong,.gold-wallet strong { font-size: 25px; } .gold-action-bar { padding: 10px; gap: 8px; min-height: 74px; } #goldDrop { min-width: 118px; font-size: 18px; } #goldDrop kbd { display: none; } .gold-action-bar p { font-size: 12px; } .gold-ranking-header { align-items: flex-start; flex-direction: column; gap: 5px; } .gold-ranking { padding: 10px 8px; gap: 5px; } .gold-ranking .value { font-size: 15px; } .gold-ranking .name { font-size: 12px; } .gold-overlay span { font-size: 12px; text-align: center; padding: 0 12px; } }
+@media(prefers-reduced-motion:reduce) { .gold-miner-page * { scroll-behavior: auto; } }

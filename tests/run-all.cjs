@@ -49,7 +49,10 @@ const SUITES = [
   { file: "tests/landlord-dual.cjs", label: "斗地主三浏览器联机验收（叫分/出牌/隐私/完整一局）" },
   { file: "tests/blackjack-dual.cjs", label: "21 点双浏览器联机验收（要牌/停牌/结算/隐私）" },
   { file: "tests/texas-dual.cjs", label: "德州扑克双浏览器联机验收（下注/摊牌/弃牌获胜/隐私）" },
-  { file: "tests/platform-regression.cjs", label: "全平台回归（11 入口/页面健康/返回大厅/本地模式）" },
+  { file: "tests/gold-miner-rules.cjs", label: "黄金矿工规则测试（双模式/抢矿/物理/截止）" },
+  { file: "tests/gold-miner-authority.cjs", label: "黄金矿工权威房间测试（权限/恢复/人员变化）" },
+  { file: "tests/gold-miner-dual.cjs", label: "黄金矿工独立浏览器联机验收（双模式/刷新/手机）" },
+  { file: "tests/platform-regression.cjs", label: "全平台回归（12 入口/页面健康/返回大厅/原有在线模式）" },
 ];
 
 /** 被测服务器进程。 */

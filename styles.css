@@ -136,6 +136,16 @@ label {
   background: #d9ae72;
 }
 
+.gold-miner-art {
+  background: linear-gradient(#b7d9d2 0 30%, #745039 30% 36%, #38291f 36%);
+}
+.gold-miner-art img { position: absolute; image-rendering: pixelated; }
+.gold-miner-card-miner { width: 58px; top: 16px; left: calc(50% - 29px); }
+.gold-miner-card-rope { position: absolute; height: 87px; width: 3px; background: #f2bc45; top: 68px; left: 50%; transform: rotate(-16deg); transform-origin: top; }
+.gold-miner-card-gold { width: 58px; top: 130px; left: 55%; }
+.gold-miner-card-diamond { width: 42px; top: 108px; left: 20%; }
+.gold-miner-card-rock { width: 54px; top: 178px; left: 31%; }
+
 .gomoku-art {
   background:
     linear-gradient(rgba(75, 49, 22, 0.28) 1px, transparent 1px),

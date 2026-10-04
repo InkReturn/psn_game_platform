@@ -104,10 +104,14 @@ async function waitForServer(timeoutMs = 20000) {
   }
 }
 
+/** 执行大厅十二入口及原页面行为回归。
+ * @returns {Promise<void>} 记录每条用例并以失败数设置进程退出码；本地服务与浏览器在收尾释放。
+ */
 (async () => {
+  // 1. 准备被忽略的截图目录。
   fs.mkdirSync("outputs", { recursive: true });
 
-  // 1. 未注入 BASE_URL 时自行拉起被测服务器。
+  // 2. 未注入 BASE_URL 时自行拉起被测服务器。
   if (!EXTERNAL_BASE) {
     serverProcess = spawn(process.execPath, [path.join(__dirname, "..", "server.js")], {
       env: { ...process.env, PORT: String(SELF_PORT), BIND_HOST: "127.0.0.1" },
@@ -125,9 +129,13 @@ async function waitForServer(timeoutMs = 20000) {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
 
-  // 2. 大厅：收集全部游戏入口。
+  // 3. 大厅：收集全部游戏入口。
   const entries = [];
-  await check("大厅可打开且包含全部 11 款游戏入口", async () => {
+  /** 核验完整大厅入口清单，失败时向用例记录器抛出断言错误。
+   * @returns {Promise<void>} 访问大厅并收集十二个页面链接供后续逐页回归。
+   */
+  await check("大厅可打开且包含全部 12 款游戏入口", async () => {
+    // 1. 观察大厅控制台，避免把缺图或脚本故障当成健康。
     const consoleErrors = [];
     const onError = (msg) => {
       if (msg.type() === "error") consoleErrors.push(msg.text());
@@ -137,13 +145,13 @@ async function waitForServer(timeoutMs = 20000) {
     page.off("console", onError);
     assertEq(consoleErrors, [], "大厅 console error");
     const links = await page.$$eval(".lobby-game", (nodes) => nodes.map((node) => node.getAttribute("href")));
-    assertEq(links.length, 11, `应有 11 个游戏入口，实际 ${links.length}`);
+    assertEq(links.length, 12, `应有 12 个游戏入口，实际 ${links.length}`);
     entries.push(...links);
-    const expected = ["gomoku.html", "tictactoe.html", "reversi.html", "connect4.html", "monopoly.html", "ludo.html", "checkers.html", "animal-chess.html", "texas.html", "blackjack.html", "landlord.html"];
+    const expected = ["gomoku.html", "tictactoe.html", "reversi.html", "connect4.html", "monopoly.html", "ludo.html", "checkers.html", "animal-chess.html", "texas.html", "blackjack.html", "landlord.html", "gold-miner.html"];
     assertEq([...links].sort(), [...expected].sort(), "入口清单一致");
   });
 
-  // 3. 逐个入口：页面健康 + 测试钩子 + 返回大厅。
+  // 4. 逐个入口：页面健康 + 测试钩子 + 返回大厅。
   for (const entry of entries) {
     await check(`入口 ${entry}：加载无错误、状态钩子就绪、可返回大厅`, async () => {
       const consoleErrors = [];
@@ -174,7 +182,7 @@ async function waitForServer(timeoutMs = 20000) {
     });
   }
 
-  // 4. 本地模式已下线：各游戏页面只剩在线入口（无 #localBtn 残留）。
+  // 5. 本地模式已下线：各游戏页面只剩在线入口（无 #localBtn 残留）。
   await check("全部游戏页面不再有本地对战入口", async () => {
     for (const entry of entries) {
       await page.goto(`${BASE_URL}/${entry}`, { waitUntil: "networkidle" });
@@ -183,12 +191,14 @@ async function waitForServer(timeoutMs = 20000) {
     }
   });
 
+  // 6. 关闭本套件拥有的浏览器与临时服务。
   await browser.close();
   if (serverProcess) {
     serverProcess.kill("SIGTERM");
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
 
+  // 7. 汇总真实执行数量并按失败数设置退出码。
   const failed = results.filter((r) => !r.pass);
   if (failed.length) console.error(`\n--- server output ---\n${serverLogs.join("")}`);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
