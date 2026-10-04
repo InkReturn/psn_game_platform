@@ -1,5 +1,19 @@
 # LinkPlay 小游戏平台（服务端化版）
 
+## 开源试玩（本机）
+
+新增“开源试玩”入口，保留原有 11 款游戏：坦克与 BrowserQuest 支持各自的在线多人世界；方块目前仅单人；原版地产桌游支持 2–8 人同屏。Lichess 明确标为待接入，不用外部网页冒充本地游戏。
+
+```powershell
+npm run arcade:install
+npm run start:arcade
+# 打开 http://127.0.0.1:8080/arcade.html
+npm run test:arcade
+```
+
+`npm start` 保持原行为，只启动平台，不自动启动独立游戏服务。试玩仅监听回环，不是生产发布；许可证、固定来源版本、素材风险和未完成项见 [开源试玩接入记录](integrations/THIRD-PARTY.md)。
+
+
 一个自建服务器的多人小游戏平台：静态页面 + Node.js 权威房间服务，11 款游戏共用同一套
 WebSocket 房间层。**不依赖任何第三方实时服务**（无 PeerJS、无 Supabase、无 WebRTC、无数据库）。
 

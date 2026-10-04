@@ -1,0 +1,9 @@
+{
+  "name": "linkplay-browserquest-runtime",
+  "private": true,
+  "dependencies": {
+    "log": "1.4.0",
+    "sanitizer": "0.1.3",
+    "underscore": "1.4.4"
+  }
+}

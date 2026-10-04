@@ -1,0 +1,68 @@
+[
+  {
+    "id": "tanks",
+    "name": "坦克大战",
+    "mode": "在线多人",
+    "mark": "TANK",
+    "color": "tank",
+    "entry": "/vendor/tanks/index.html",
+    "servicePort": 2567,
+    "source": "https://github.com/colyseus/realtime-tanks-demo",
+    "revision": "6339493130b4b1d4d28f0f52d17b2fba738c7d47",
+    "license": "MIT · 模型单独署名",
+    "controls": "WASD / 方向键移动 · 鼠标瞄准 · 左键射击",
+    "state": "imported"
+  },
+  {
+    "id": "browserquest",
+    "name": "像素冒险",
+    "mode": "在线多人 · 32 人世界",
+    "mark": "QUEST",
+    "color": "quest",
+    "entry": "/vendor/browserquest/client/index.html",
+    "servicePort": 8093,
+    "source": "https://github.com/mozilla/BrowserQuest",
+    "revision": "af32d247cac3495ca430d0effbb88dd5f3250b2c",
+    "license": "MPL-2.0 · 素材 CC-BY-SA-3.0",
+    "controls": "输入角色名 · 点击地图移动 · 点击怪物攻击",
+    "state": "imported"
+  },
+  {
+    "id": "tetris",
+    "name": "方块街机",
+    "mode": "单人试玩 · 多人待接入",
+    "mark": "BLOCK",
+    "color": "block",
+    "entry": "/vendor/tetris/",
+    "source": "https://github.com/NatsuDrag9/tetris-multiplayer",
+    "revision": "b654542140d0db37fb700bc2ff5a23822ac26145",
+    "license": "MIT · 字体素材需分别核查",
+    "controls": "方向键左右移动 / 向下加速 / 向上旋转 · Esc 暂停",
+    "state": "imported"
+  },
+  {
+    "id": "monopoly-classic",
+    "name": "地产桌游 · 原版",
+    "mode": "2–8 人同屏 · 可选 AI",
+    "mark": "ESTATE",
+    "color": "estate",
+    "entry": "/vendor/monopoly/index.html",
+    "source": "https://github.com/intrepidcoder/monopoly",
+    "revision": "3537fc393930f1712e8b4d6fbe2e80b25419ceed",
+    "license": "MIT · 品牌及素材需单独核查",
+    "controls": "选择人数与玩家 · Start Game 开局 · Roll Dice 掷骰",
+    "state": "imported"
+  },
+  {
+    "id": "lichess",
+    "name": "国际象棋 · Lichess",
+    "mode": "待接入",
+    "mark": "CHESS",
+    "color": "chess",
+    "source": "https://github.com/lichess-org/lila",
+    "revision": "d524da63696e0e76fdc061ea62c407bb78340d35",
+    "license": "AGPL-3.0-or-later",
+    "state": "pending",
+    "reason": "本机缺少 sbt 与 MongoDB；完整平台还需独立 WebSocket 服务及 Redis，不把远程网站链接冒充本地接入。"
+  }
+]

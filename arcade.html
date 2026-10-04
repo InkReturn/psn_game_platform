@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>开源试玩 · LinkPlay</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="arcade.css" />
+  <script src="arcade.js" defer></script>
+</head>
+<body>
+  <main class="lobby-shell arcade-shell">
+    <header class="arcade-header">
+      <a href="index.html" class="arcade-back">← 游戏大厅</a>
+      <button id="refresh-catalog" type="button">刷新状态</button>
+    </header>
+    <div class="arcade-heading"><span class="eyebrow">LINKPLAY / OPEN ARCADE</span><h1>开源试玩</h1><span class="arcade-local">本机试玩</span></div>
+    <p id="catalog-status" role="status" aria-live="polite">正在检查游戏…</p>
+    <section id="arcade-catalog" class="arcade-grid" aria-label="开源游戏"></section>
+    <footer class="arcade-footer"><a href="integrations/THIRD-PARTY.md">来源与授权</a><a href="https://github.com/boardgameio/boardgame.io" target="_blank" rel="noopener noreferrer">boardgame.io · 回合制引擎 ↗</a></footer>
+  </main>
+</body>
+</html>
