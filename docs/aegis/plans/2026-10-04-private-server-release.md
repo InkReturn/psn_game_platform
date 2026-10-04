@@ -47,4 +47,5 @@
 - 公网真实验收全部通过：arcade-smoke BASE_URL+EXPECT_ARCADE_PROXY=1 8/8（errors=[]、remoteRequests=[]）；拼豆公网非安全源 24/24（含事务保存、关浏览器恢复、旧库迁移）；核心 /ws 公网建房/加入/双方落子/权威快照探针成功。公网监听仅 8881+22，8080/2567/8093 全回环；unit 零重启。公网首载素材 20–30s 导致一次验收超时，已把该用例等待放宽到公网档 90s，属测试预算非应用缺陷。
 - 运行配置与仓库快照 sha256 逐字节一致；完整事实、哈希与回滚边界记录在 deploy/private-server/README.md。
 - 未完成：Skill 写入与 sync-rules 登记（下一步）。
+- 2026-10-04 收尾完成：`deploying-linkplay` skill 已落 `~/.agents/skills/deploying-linkplay/`（含现场速查、更新/回滚流程、实测教训），manifest 登记、INDEX 重生、discovery-policy 重建（explicit-only）、Claude 注册 junction 核对 linked-correct、Host 目录已发现。基线（无技能子代理只给泛泛建议、不知服务名/路径/回滚）与变更后验证（产出正确项目专属流程）均已记录。`private-server` skill 的服务器现状节已同步回填（不再是无业务干净基线）。airule 远端 push 未执行，需要时另行授权。
 - 不声明已发布；缺少任一目标验证时保持 needs-verification。
