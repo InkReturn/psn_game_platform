@@ -835,7 +835,7 @@ async function scenario(name, f) {
         // 2. 保留模板顺序，返回解码后的天然像素尺寸供逐张断言。
         return results;
       });
-      assert.deepEqual(dimensions, [[18,18],[18,18],[18,18],[18,18],[18,18],[24,24]]); assert.equal((await state(f.b)).assetErrors, ""); assert.deepEqual(f.external, []);
+      assert.deepEqual(dimensions, [[48,48],[56,56],[56,56],[48,48],[72,72],[80,80]]); assert.equal((await state(f.b)).assetErrors, ""); assert.deepEqual(f.external, []);
       break;
     }
     case "A21 六图解码失败可见告警且仍能真实回收计分": {

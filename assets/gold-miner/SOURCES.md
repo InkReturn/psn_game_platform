@@ -1,21 +1,21 @@
 # 黄金矿工素材采用记录
 
-- 作者：Kenney（https://kenney.nl）。实际素材包：Pixel Platformer 1.2。
-- 官方资产页：https://kenney.nl/assets/pixel-platformer 。2026-10-04 实际访问，标注 Creative Commons CC0。
-- 官方下载：https://kenney.nl/media/pages/assets/pixel-platformer/33bb4921eb-1696667883/kenney_pixel-platformer.zip 。实际下载成功；ZIP SHA256：`D01A196DBE3CC964E00D83BA3B987DF62F332DC9260C9F941B4FBCC9047130F4`。
-- 许可：随包 `License.txt` 已原样保存在本目录 `LICENSE.txt`，Creative Commons Zero (CC0)，允许个人、教育和商业用途，无强制署名。官方许可说明：https://kenney.nl/support 。CC0：https://creativecommons.org/publicdomain/zero/1.0/ 。不使用 Kenney 官方 Logo。
+- 当前素材：由 img2.5（gpt-image-2.5，经 AirCode 中转站 `https://api.aircode.xin` 生成）绘制，生成日期 2026-10-04。
+- 每张图均为单主题文生图（1024×1024），再经程序处理落地：主体图（金块/钻石/石头/矿工）以纯黑背景生成后，从画布边缘洪水填充抠除背景为透明，并高质量降采样到游戏渲染尺寸；纹理图（泥土/地表）为满幅无缝平铺纹理，直接降采样。
+- 生成时未调用任何模型生图以外的第三方素材；提示词统一限定 16-bit 像素风、无文字、无水印、无描边框。
+- 用户授权来源为“img2.5 生成或网络获取”；本轮实际采用生成路线，未使用 Kenney 素材，也未声称使用了未验证的其它模型或来源。
+- 历史记录：2026-10-04 曾采用 Kenney Pixel Platformer 1.2（CC0，ZIP SHA256 `D01A196DBE3CC964E00D83BA3B987DF62F332DC9260C9F941B4FBCC9047130F4`）的六张图，本轮为提升观感已被 img2.5 生成图整批替换，不再随游戏分发；`LICENSE.txt` 保留 Kenney 原许可文件作为历史记录。
+- 图片加载失败时页面仍显示告警并退回几何形状继续游戏；浏览器运行只请求本站 `assets/gold-miner/` 路径，无第三方图片、字体或热链。
 
-| 本地文件 | 原包路径 | 尺寸 | 实际用途/修改 |
+| 本地文件 | 生成主题 | 落地尺寸 | 用途/处理 |
 | --- | --- | --- | --- |
-| gold.png | Tiles/tile_0009.png | 18×18 | 黄色方块作为金块，依权威矿石半径缩放（当前规则金块半径24）；未改像素 |
-| diamond.png | Tiles/tile_0067.png | 18×18 | 蓝钻石；未改像素 |
-| rock.png | Tiles/tile_0007.png | 18×18 | 棕色石块；未改像素 |
-| dirt.png | Tiles/tile_0004.png | 18×18 | 地下岩土重复纹理；Canvas 叠暗色，不修改源文件 |
-| ground.png | Tiles/tile_0000.png | 18×18 | 地表草土边缘；未改像素 |
-| miner.png | Tiles/Characters/tile_0006.png | 24×24 | 黄色头盔矿工；未改像素 |
+| gold.png | 金块（sparkle 高光） | 48×48 | 金矿块；黑底抠除透明后降采样 |
+| diamond.png | 蓝色切面钻石 | 56×56 | 钻矿石；黑底抠除透明后降采样 |
+| rock.png | 灰色圆石 | 56×56 | 石块；黑底抠除透明后降采样 |
+| dirt.png | 无缝泥土纹理 | 48×48 | 矿场地下平铺背景（createPattern 单元） |
+| ground.png | 草土地表纹理 | 72×72 | 矿场顶部地表条（渲染 36×36） |
+| miner.png | 卡通矿工立绘 | 80×80 | 矿机上的矿工形象（渲染 40×40） |
 
-抓钩、绳索、矿机、矿洞轮廓和大厅缩略图由本项目 Canvas/HTML 几何绘制并组合上述图片，不采用原版黄金矿工游戏资源。图片失败会在页面报告并使用几何形状继续游戏。
-
-只复制这六张图和许可；原包/预览保存在被忽略的 outputs/gold-miner-source/ 供核实，不作为交付资产提交。浏览器运行只请求本站 assets/gold-miner/ 路径，无第三方图片、字体或热链。
-
-未调用任何生图工具，未验证或使用 img2.5，不声称这些图片是生成素材。
+- 抓钩、绳索、矿机、矿洞轮廓和大厅卡片装饰由本项目 Canvas/HTML 几何绘制并组合上述图片，不采用原版黄金矿工游戏资源。
+- 生成原图与中间产物保存在被 git 忽略的 `outputs/gold-miner-art/` 供核实，不作为交付资产提交。
+- 未验证或使用 img2.5 以外的任何生成模型来制作这六张图。
