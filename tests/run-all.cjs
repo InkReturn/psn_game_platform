@@ -51,7 +51,10 @@ const SUITES = [
   { file: "tests/texas-dual.cjs", label: "德州扑克双浏览器联机验收（下注/摊牌/弃牌获胜/隐私）" },
   { file: "tests/beads-model.cjs", label: "拼豆模型与存档契约单元测试" },
   { file: "tests/beads-browser.cjs", label: "拼豆真实浏览器操作与本地存档验收" },
-  { file: "tests/platform-regression.cjs", label: "全平台回归（12 入口/页面健康/返回大厅/在线游戏边界）" },
+  { file: "tests/gold-miner-rules.cjs", label: "黄金矿工规则测试（双模式/抢矿/物理/截止）" },
+  { file: "tests/gold-miner-authority.cjs", label: "黄金矿工权威房间测试（权限/恢复/人员变化）" },
+  { file: "tests/gold-miner-dual.cjs", label: "黄金矿工独立浏览器联机验收（双模式/刷新/手机）" },
+  { file: "tests/platform-regression.cjs", label: "全平台回归（13 入口/页面健康/返回大厅/在线游戏边界）" },
 ];
 
 /** 被测服务器进程。 */

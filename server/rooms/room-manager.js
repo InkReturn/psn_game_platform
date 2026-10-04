@@ -16,6 +16,7 @@ const { MonopolyRoom } = require("../games/monopoly-room");
 const { LandlordRoom } = require("../games/landlord-room");
 const { BlackjackRoom } = require("../games/blackjack-room");
 const { TexasRoom } = require("../games/texas-room");
+const { GoldMinerRoom } = require("../games/gold-miner-room");
 const { RoomModel, isSupportedGameType, roomModelOf, roomPrefixOf } = require("../games/game-types");
 const { RelayRoom } = require("./relay-room");
 const { ErrorCodes } = require("../protocol/errors");
@@ -46,6 +47,15 @@ const AUTHORITATIVE_ROOMS = {
   landlord: (roomId) => new LandlordRoom(roomId),
   blackjack: (roomId, payload) => new BlackjackRoom(roomId, payload),
   texas: (roomId, payload) => new TexasRoom(roomId, payload),
+  /** 构造黄金矿工等待房；比赛配置仅在房主start时校验。
+   * @param {string} roomId - 唯一的八位房间码。
+   * @param {object} payload - 已接收的建房负载；本房间构造器不采纳比赛模式、时长或客户端结果。
+   * @returns {GoldMinerRoom} 新建房间，不自动开局。
+   */
+  "gold-miner": (roomId, payload) => {
+    // 1. 将生命周期及规则交给独立游戏房间。
+    return new GoldMinerRoom(roomId, payload);
+  },
 };
 
 class RoomManager {

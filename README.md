@@ -19,27 +19,30 @@ npm run test:arcade
 
 `npm start` 保持原行为，只启动平台，不自动启动独立游戏服务。直接本机启动仅监听回环；私有服务器个人试玩由 Nginx 8881 同源反代，不开放独立服务端口。许可证、固定来源版本、素材风险和未完成项见 [开源试玩接入记录](integrations/THIRD-PARTY.md)。
 
-
-一个自建服务器的多人小游戏平台：静态页面 + Node.js 权威房间服务，11 款游戏共用同一套
+一个自建服务器的多人小游戏平台：静态页面 + Node.js 权威房间服务，12 款联机游戏共用同一套
 WebSocket 房间层。**不依赖任何第三方实时服务**（无 PeerJS、无 Supabase、无 WebRTC、无数据库）。
 
 ## 架构总览
 
 ```
-浏览器 A ─┐                      ┌─ 静态资源（11 个游戏页面 + 大厅）
+浏览器 A ─┐                      ┌─ 静态资源（12 个游戏页面 + 大厅）
           ├─ HTTP(S) ── Nginx ──┤
 浏览器 B ─┘                      └─ WS(S) /ws ── Node.js（Express + ws）
                                                     ├─ RoomManager  房间生命周期 / 房间码 / 断线宽限
                                                     ├─ GomokuRoom   五子棋权威对局（服务器唯一状态源）
-                                                    └─ RelayRoom    其余 10 款游戏的消息转发房
+                                                    └─ 各游戏 Room 权威对局（含 GoldMinerRoom 实时挖矿）
 ```
 
 - **传输层**：单一 WebSocket 端点 `/ws`，协议信封 `{version:1, type, requestId?, payload}`。
   客户端请求带 `requestId`，服务器用同一 `requestId` 关联响应；推送消息不带。
 - **五子棋：服务器权威**。棋盘、轮次、胜负、悔棋、认输、换先、战绩全部由服务器持有与推进；
   客户端只发送操作意图（`game.action`），服务器校验后广播权威快照 `game.updated`。
-- **其余 10 款游戏：服务器转发（relay）**。保留"房主客户端权威 + 快照广播"模型，
-  服务器只做成员管理与消息转发（`relay.send` → `relay.message`），把原先的第三方实时通道换成自建 WS。
+- **大厅全部 12 款游戏：服务器权威**。实际 `game-types.js` 与 `RoomManager` 注册表均走各游戏权威 Room；
+  通用 `authoritative-room.js` 面板负责身份和快照，客户端只发送 `game.action` 意图。
+  `RelayRoom` 仅保留通用协议兼容能力，不是大厅游戏的当前实现路径。
+- **黄金矿工**：2–6 人，房主选择共享抢矿或独立竞速，自由输入 10–600 秒整数（默认初值 90）。
+  服务器安排 3 秒倒计时，自动摆钩、扫掠碰撞、矿石独占、按重量回收，回到矿机且早于截止才计分。
+  按钮、空格、触屏放钩；实时总价值、同分并列，晚加入等待下一局，支持刷新恢复、房主交接和再来一局。
 - **状态存储：进程内存**。房间与对局状态不落盘，**服务重启即全部丢失**（第一阶段约定）。
 
 ## 页面结构
@@ -48,20 +51,21 @@ WebSocket 房间层。**不依赖任何第三方实时服务**（无 PeerJS、�
 |---|---|---|
 | `index.html` | 大厅（选择游戏） | — |
 | `gomoku.html` | 五子棋 | 服务器权威（2 人） |
-| `tictactoe.html` | 井字棋 | relay（房主权威） |
-| `reversi.html` | 黑白棋 | relay（房主权威） |
-| `connect4.html` | 四子棋 | relay（房主权威） |
-| `monopoly.html` | 大富翁 | relay（房主权威） |
-| `ludo.html` | 飞行棋 | relay（房主权威） |
-| `checkers.html` | 跳棋 | relay（房主权威） |
-| `animal-chess.html` | 斗兽棋 | relay（房主权威） |
-| `texas.html` | 德州扑克 | relay（房主权威） |
-| `blackjack.html` | 21 点 | relay（房主权威） |
-| `landlord.html` | 斗地主 | relay（房主权威） |
+| `tictactoe.html` | 井字棋 | 服务器权威 |
+| `reversi.html` | 黑白棋 | 服务器权威 |
+| `connect4.html` | 四子棋 | 服务器权威 |
+| `monopoly.html` | 大富翁 | 服务器权威 |
+| `ludo.html` | 飞行棋 | 服务器权威 |
+| `checkers.html` | 跳棋 | 服务器权威 |
+| `animal-chess.html` | 斗兽棋 | 服务器权威 |
+| `texas.html` | 德州扑克 | 服务器权威 |
+| `blackjack.html` | 21 点 | 服务器权威 |
+| `landlord.html` | 斗地主 | 服务器权威 |
+| `gold-miner.html` | 黄金矿工（共享抢矿 / 独立竞速） | 服务器权威（2–6 人，自定义时长） |
 
 ## 赛博拼豆（单人本地创作）
 
-大厅保留 11 款联机游戏，另有第 12 个入口 `beads.html`。支持环状豆子画板、拖动、擦除、填充、取色、撤销重做、多作品命名、模板、PNG 成品与 JSON 备份。
+大厅保留 12 款联机游戏，另有第 13 个入口 `beads.html`。支持环状豆子画板、拖动、擦除、填充、取色、撤销重做、多作品命名、模板、PNG 成品与 JSON 备份。
 
 - 作品自动保存在同一浏览器、同一站点的 IndexedDB 本地事务库，HTTP IP 下也能刷新或重新打开恢复；清除站点数据会删除作品。没有账号、云同步或服务端数据库。旧版 localStorage 自动无损迁移且保留原文。
 - 存档支持 16/24/32/48/64 格画板，最多 30 幅，名称 1–60 字符；导入上限 2 MB，先校验整份文件再追加新标识作品，不替换现有作品。
@@ -96,7 +100,10 @@ curl http://127.0.0.1:8080/health
 ```
 server.js                  进程入口：Express 静态托管 + /health + 优雅停机
 net-client.js              浏览器共享 WS 客户端（requestId 关联、指数退避重连、错误码→中文）
-room-common.js             relay 房间面板（10 款游戏共用，initRoomPanel 接口保持不变）
+authoritative-room.js      大厅游戏通用权威房间面板（身份/邀请/恢复/只读快照）
+room-common.js             旧 relay 兼容面板，不用于黄金矿工
+gold-miner-rules.js         黄金矿工唯一规则/物理/计时/计分，CommonJS及浏览器共用
+gold-miner.js               黄金矿工只读Canvas渲染及start/drop操作意图
 gomoku-net.js              五子棋联机面板（房间 UI + 凭据保存 + 身份恢复）
 gomoku-app.js              五子棋渲染层（服务器权威快照渲染 + 本地模式规则）
 server/
@@ -120,7 +127,7 @@ tests/                     协议测试 + 浏览器测试 + 统一 runner
 | `room.join` | `{roomId, nickname, gameType?}` → `room.joined` |
 | `room.reconnect` | `{roomId, playerId, reconnectToken}` → `room.reconnected`（断线宽限期内恢复座位） |
 | `room.leave` | 主动离开 → `room.left` |
-| `game.action` | 五子棋权威动作：`move` / `undo_request` / `undo_respond` / `surrender` / `restart` / `play_again` |
+| `game.action` | 各游戏权威意图；黄金矿工仅 `start`（mode/durationSeconds）及 `drop`（无金额/角度/目标） |
 | `relay.send` | `{event, data, targetId?}` → 广播或定向 `relay.message` |
 | `ping` | 应用层心跳 → `pong` |
 
@@ -156,8 +163,27 @@ npm run test:dual        # 仅五子棋双端验收（自行在 18082 端口拉�
 | `tests/gomoku-dual.cjs` | 8 项：两个独立浏览器上下文完成建房→邀请链接加入→轮流落子同步→越权被拒→重复落子→刷新恢复→五连胜负，并断言全程只访问本源域名 |
 | `tests/lobby-smoke.cjs` | 大厅跳转到五子棋 |
 | `tests/gomoku-smoke.cjs` | 五子棋联机建房/刷新恢复 + 本地模式完整对局、悔棋、结算、再来一局、认输 |
-| `tests/games-smoke.cjs` | 7 款 relay 游戏建房与开局交互 |
+| `tests/games-smoke.cjs` | 10 款既有权威游戏建房冒烟，完整对局另由各游戏 dual 套件覆盖 |
 | `tests/grid-games-smoke.cjs` | 井字棋/黑白棋/四子棋本地规则与计时 |
+
+### 黄金矿工局部验收
+
+```powershell
+node --check gold-miner-rules.js
+node --check gold-miner.js
+node --check server/games/gold-miner-room.js
+node tests/gold-miner-rules.cjs
+node tests/gold-miner-authority.cjs
+node tests/gold-miner-dual.cjs
+node tests/platform-regression.cjs
+npm test
+```
+
+- rules 为纯物理/截止/抢占单元测试；authority 使用注入时钟和定时器的真实房间 fixtures，**不冒充 WebSocket 测试**。
+- dual 自行启动隔离回环服务器（或复用回环 `BASE_URL`），先真 WS 验权限/时长/六人上限，再用独立桌面和触屏浏览器身份完成双模式、真实截止、刷新/断线恢复和交接。
+- 金额只由服务端在矿石完成回收时入账。退出者保留结果但失去获胜资格；结束后的下一局才清分。服务重启不保留比赛。
+- 本地素材来自 Kenney Pixel Platformer 1.2（CC0）；实际六张图片及原包映射见 `assets/gold-miner/SOURCES.md`，原包许可见 `assets/gold-miner/LICENSE.txt`。未使用 img2.5。
+- 完整需求、22项验收与最新执行证据持续回写 `docs/gold-miner-plan.md`。
 
 测试截图输出到 `outputs/`（已在 `.gitignore` 中忽略）。
 
