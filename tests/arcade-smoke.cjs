@@ -155,7 +155,7 @@ async function main() {
     // 2. 验证大厅入口、未接入项目无试玩按钮及移动端布局。
     const lobby = await playerPage(browser);
     await lobby.page.goto(baseUrl);
-    assert.equal(await lobby.page.locator(".lobby-grid > a").count(), 12);
+    assert.equal(await lobby.page.locator(".lobby-grid > a").count(), 13);
     await lobby.page.getByRole("link", { name: "开源试玩 →" }).click();
     await lobby.page.locator('.arcade-card[data-game="tanks"] .arcade-action').waitFor();
     assert.equal(await lobby.page.locator(".arcade-action").count(), 4);
