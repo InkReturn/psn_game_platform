@@ -17,24 +17,28 @@
 
 网络模式由 `/api/arcade-network.js` 显式声明：直接访问回环 Node 时为开发直连，公网 Nginx 为同源代理。客户端不按 hostname 猜测，声明缺失时只能尝试同源路径，不能自动退回内部端口。包装页不得再次注入 `:2567` 覆盖。
 
-## 实际运行版本（2026-10-04 第二版发布：黄金矿工多人联机上线）
+## 实际运行版本（2026-10-05 第三版发布：拼豆自定义画板 + 账号系统 + 大厅两级）
 
-- 运行提交：`0a4b1813116b351bde9f8d315f1d7880c285818f`（main 分支，大厅 13 款游戏：原 11 款 + 黄金矿工 + 拼豆，及 4 款开源试玩）
-- 发布包 SHA-256：`11ab4f6dd71b8b1b7add003fcb5a20bb2f03ac36aec54880eacd0e15fa028a83`
-- 运行目录：`/opt/linkplay/releases/0a4b1813116b351bde9f8d315f1d7880c285818f`，`current` 指向该目录；上一版 `de7afad` 目录完整保留供回滚
-- systemd unit：`/etc/systemd/system/linkplay.service`，SHA-256 `8fcf357db5bbf286c4968a4ee2cf8ed3b172f7d34636a8890bd5adf1c44ca003`
-- Nginx 配置：`/etc/nginx/conf.d/linkplay.conf`，SHA-256 `57775f5f562549c5522aec1b4a2b4f99dc84a08ddedb4d4c8d8a9b14d7c26280`
+- 运行提交：`e45db13653c4351a2836c20e5f7127ff1f6552c5`（main 分支；本版上线拼豆自定义长宽矩形板与滚轮缩放/拖动平移/双指手势、`/api/auth` 账号系统、大厅"选游戏 → 选房间"两级结构）
+- 发布包 SHA-256：`36b470e11d5a7159e9c0d22366c47e72b11cc579b1213a762cc41f885e382294`
+- 运行目录：`/opt/linkplay/releases/e45db13653c4351a2836c20e5f7127ff1f6552c5`，`current` 指向该目录；上一版 `0a4b181` 目录完整保留供回滚
+- systemd unit：`/etc/systemd/system/linkplay.service`，SHA-256 `8f23638e5cde22c6a07c3506316aaa53c07f7df24d2924e2ce0c30a777cd7f5f`；本版新增 `StateDirectory=linkplay` 与 `LINKPLAY_AUTH_FILE=/var/lib/linkplay/accounts.json`，账号数据首次拥有跨版本持久化位置（0640 ubuntu:ubuntu），旧 unit 备份于 `/opt/linkplay/backups/linkplay.service.pre-e45db13.bak`
+- Nginx 配置：本版未改动，SHA-256 仍为 `57775f5f562549c5522aec1b4a2b4f99dc84a08ddedb4d4c8d8a9b14d7c26280`；`/api/auth/*` 经既有 `location /` 代理到 127.0.0.1:8080
 - 公网监听面：**仅 8881（nginx）与 22（sshd）**；内部服务全部只在 127.0.0.1
 - unit 状态：`linkplay` active 且 enabled；内存平稳，子进程正常管理
 
-## 公网验收记录（2026-10-04）
+## 公网验收记录（2026-10-05）
+
+发布前本地门禁：`npm test` 全量 **37/37 测试文件通过**（账号 7/7、大厅房间协议 7/7、拼豆模型 22 + 浏览器 25、黄金矿工 35+24+19、平台回归 15/15 等）。
 
 从开发机走真实公网 `http://111.229.38.64:8881` 执行：
 
-- `node tests/platform-regression.cjs`（`BASE_URL=http://111.229.38.64:8881`）：**15/15 全部通过**——大厅 13 款游戏全部打开且状态钩子就绪，包括 `gold-miner.html`。
-- `node tests/beads-browser.cjs`（`BASE_URL=http://111.229.38.64:8881`）：**24/24 全部通过**——拼豆全套存档、撤销与移动端触摸。
-- `npm run test:arcade`（`BASE_URL` + `EXPECT_ARCADE_PROXY=1`）：**8/8 通过**——坦克与冒险同源双世界及单人桌游。
-- 黄金矿工公网真实 WebSocket 探针：`ws://111.229.38.64:8881/ws` 真实完成建房、第二人加入、房主 30s 开局与快照接收，全部成功。
+- 切换前冒烟：新 release 在 127.0.0.1:18081 独立启动，`/health`、注册、`me`、账号文件落盘全部通过后清理，未触碰运行中的旧版本。
+- 公网 auth 探针：注册 `deploy_probe` → `me` → 登出吊销令牌 → 大小写不敏感重登，全部通过；数据写入 `/var/lib/linkplay/accounts.json`。
+- `npm run test:arcade`（`BASE_URL` + `EXPECT_ARCADE_PROXY=1`）：**8/8 通过**——同源双世界、目录与边界。
+- `node tests/beads-browser.cjs`（`BASE_URL`）：**25/25 通过**——含自定义长宽矩形板、滚轮缩放、右/中键拖动平移、双指捏合与平移，以及 HTTP 非安全源事务存档。
+- `node tests/platform-regression.cjs`（`BASE_URL`）：**15/15 通过**——13 个入口全部健康。
+- 暴露面核查：`ss -tlnp` 公网监听仅 8881 + 22；8080/2567/8093 仍只在回环。
 
 ## 已完成的环境准备
 
