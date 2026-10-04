@@ -1,0 +1,9 @@
+diff --git a/web-threejs/src/main.ts b/web-threejs/src/main.ts
+index 96db53b..6a0c27d 100644
+--- a/web-threejs/src/main.ts
++++ b/web-threejs/src/main.ts
+@@ -1,4 +1,3 @@
+-import "@colyseus/sdk/debug";
+ import { Game } from "./Game";
+ 
+ const game = new Game();

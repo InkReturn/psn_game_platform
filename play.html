@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>游戏试玩 · LinkPlay</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="arcade.css" />
+  <script src="play.js" defer></script>
+</head>
+<body class="play-body">
+  <header class="play-header">
+    <a href="arcade.html" class="arcade-back">← 开源试玩</a>
+    <h1 id="game-title">正在加载</h1>
+    <div class="play-tools"><a id="game-source" hidden target="_blank" rel="noopener noreferrer">源码 ↗</a><button id="fullscreen-game" type="button" disabled>全屏</button></div>
+  </header>
+  <p id="play-status" role="status" aria-live="polite">正在检查游戏服务…</p>
+  <iframe id="game-frame" title="游戏试玩" allow="autoplay; fullscreen" allowfullscreen hidden></iframe>
+</body>
+</html>

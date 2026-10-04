@@ -5,6 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "arcade:install": "node integrations/install-arcade.cjs",
+    "start:arcade": "node integrations/start-arcade.cjs",
+    "test:arcade": "node tests/arcade-smoke.cjs",
     "test": "node tests/run-all.cjs",
     "test:protocol": "node tests/server-protocol.cjs",
     "test:dual": "node tests/gomoku-dual.cjs",
