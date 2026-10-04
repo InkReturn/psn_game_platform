@@ -17,27 +17,24 @@
 
 网络模式由 `/api/arcade-network.js` 显式声明：直接访问回环 Node 时为开发直连，公网 Nginx 为同源代理。客户端不按 hostname 猜测，声明缺失时只能尝试同源路径，不能自动退回内部端口。包装页不得再次注入 `:2567` 覆盖。
 
-## 实际运行版本（2026-10-04）
+## 实际运行版本（2026-10-04 第二版发布：黄金矿工多人联机上线）
 
-- 运行提交：`de7afad5bf5472e402d00f3a4849ba3f5a9a1156`（main 分支）
-- 发布包 SHA-256：`7931d6a1df2655ea4c4af2ee7ac3693156d0871cccb60df85ced648b10a35549`
-- 运行目录：`/opt/linkplay/releases/de7afad5bf5472e402d00f3a4849ba3f5a9a1156`，`current` 指向该目录；包内 `source.tar.gz` 即公开源码与许可包
+- 运行提交：`0a4b1813116b351bde9f8d315f1d7880c285818f`（main 分支，大厅 13 款游戏：原 11 款 + 黄金矿工 + 拼豆，及 4 款开源试玩）
+- 发布包 SHA-256：`11ab4f6dd71b8b1b7add003fcb5a20bb2f03ac36aec54880eacd0e15fa028a83`
+- 运行目录：`/opt/linkplay/releases/0a4b1813116b351bde9f8d315f1d7880c285818f`，`current` 指向该目录；上一版 `de7afad` 目录完整保留供回滚
 - systemd unit：`/etc/systemd/system/linkplay.service`，SHA-256 `8fcf357db5bbf286c4968a4ee2cf8ed3b172f7d34636a8890bd5adf1c44ca003`
 - Nginx 配置：`/etc/nginx/conf.d/linkplay.conf`，SHA-256 `57775f5f562549c5522aec1b4a2b4f99dc84a08ddedb4d4c8d8a9b14d7c26280`
-- 以上两文件与仓库快照逐字节一致（sha256 直接比对通过）
-- 公网监听面：**仅 8881（nginx）与 22（sshd）**；8080/2567/8093 全部只在 127.0.0.1
-- 两个 unit 均 active 且 enabled（重启自动拉起）；linkplay 零重启，内存约 190MB，67 任务
-- Ubuntu 仓库发行版运行时：Node `v22.22.1`、npm `9.2.0`、Nginx `1.28.3`；包安装前已 mask 新 nginx，配置通过 `nginx -t` 后才解除，默认 80 站点 symlink 已移除（源文件保留在 sites-available）
+- 公网监听面：**仅 8881（nginx）与 22（sshd）**；内部服务全部只在 127.0.0.1
+- unit 状态：`linkplay` active 且 enabled；内存平稳，子进程正常管理
 
 ## 公网验收记录（2026-10-04）
 
 从开发机走真实公网 `http://111.229.38.64:8881` 执行：
 
-- `npm run test:arcade`（`BASE_URL` + `EXPECT_ARCADE_PROXY=1`）：**8/8 通过**——目录 4 款可玩、Lichess 待接入不冒充；大厅 12 入口、375px 无溢出；方块真实开局；地产桌游 2 人同屏；坦克双端进入同一权威房间并真实收发；像素冒险双角色完成握手、世界人数 ≥2、收到游戏帧；非法编号不挂 iframe；公网声明、内部路径 404、署名页全部通过。`errors=[]`、`remoteRequests=[]`（无外部 CDN 依赖）。
-- 拼豆浏览器验收（`BASE_URL` 公网非安全源）：**24/24 通过**——含 HTTP 无 Web Locks 事务保存、实际关闭浏览器后恢复、旧 localStorage 迁移保留原文、未知读取基线重试不遮蔽。
-- 核心 `/ws` 协议探针：公网建房 → 加入自动开局 → 双方真实落子 → 权威快照一致，全部成功。
-- 曾发现公网首载素材 20–30 秒导致验收超时；已放宽该用例等待至 90s（公网档），非应用缺陷。
-- 曾出现一次脚本中断留下孤儿 npm 进程与并发 `npm ci` 争锁；按精确 PID 终止双方后单独重装，未影响任何未知进程。
+- `node tests/platform-regression.cjs`（`BASE_URL=http://111.229.38.64:8881`）：**15/15 全部通过**——大厅 13 款游戏全部打开且状态钩子就绪，包括 `gold-miner.html`。
+- `node tests/beads-browser.cjs`（`BASE_URL=http://111.229.38.64:8881`）：**24/24 全部通过**——拼豆全套存档、撤销与移动端触摸。
+- `npm run test:arcade`（`BASE_URL` + `EXPECT_ARCADE_PROXY=1`）：**8/8 通过**——坦克与冒险同源双世界及单人桌游。
+- 黄金矿工公网真实 WebSocket 探针：`ws://111.229.38.64:8881/ws` 真实完成建房、第二人加入、房主 30s 开局与快照接收，全部成功。
 
 ## 已完成的环境准备
 
