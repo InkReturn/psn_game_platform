@@ -17,15 +17,27 @@
 
 网络模式由 `/api/arcade-network.js` 显式声明：直接访问回环 Node 时为开发直连，公网 Nginx 为同源代理。客户端不按 hostname 猜测，声明缺失时只能尝试同源路径，不能自动退回内部端口。包装页不得再次注入 `:2567` 覆盖。
 
-## 实际运行版本（2026-10-05 第三版发布：拼豆自定义画板 + 账号系统 + 大厅两级）
+## 实际运行版本（2026-10-05 第四版发布：黄金矿工 img2.5 素材）
 
-- 运行提交：`e45db13653c4351a2836c20e5f7127ff1f6552c5`（main 分支；本版上线拼豆自定义长宽矩形板与滚轮缩放/拖动平移/双指手势、`/api/auth` 账号系统、大厅"选游戏 → 选房间"两级结构）
-- 发布包 SHA-256：`36b470e11d5a7159e9c0d22366c47e72b11cc579b1213a762cc41f885e382294`
-- 运行目录：`/opt/linkplay/releases/e45db13653c4351a2836c20e5f7127ff1f6552c5`，`current` 指向该目录；上一版 `0a4b181` 目录完整保留供回滚
-- systemd unit：`/etc/systemd/system/linkplay.service`，SHA-256 `8f23638e5cde22c6a07c3506316aaa53c07f7df24d2924e2ce0c30a777cd7f5f`；本版新增 `StateDirectory=linkplay` 与 `LINKPLAY_AUTH_FILE=/var/lib/linkplay/accounts.json`，账号数据首次拥有跨版本持久化位置（0640 ubuntu:ubuntu），旧 unit 备份于 `/opt/linkplay/backups/linkplay.service.pre-e45db13.bak`
-- Nginx 配置：本版未改动，SHA-256 仍为 `57775f5f562549c5522aec1b4a2b4f99dc84a08ddedb4d4c8d8a9b14d7c26280`；`/api/auth/*` 经既有 `location /` 代理到 127.0.0.1:8080
+- 运行提交：`a75aa49595bb49dff709c41623f783107276e317`（main 分支；本版将黄金矿工六张素材替换为 img2.5/gpt-image-2.5 生成的像素风图：金块 48×48、钻石/石头 56×56、泥土 48×48、地表 72×72、矿工 80×80，来源与处理记录见 `assets/gold-miner/SOURCES.md`；同包含第三版全部账号系统与大厅两级功能）
+- 发布包 SHA-256：`24feef30fbbbf0f3006ca74660bc0367cda708fd41c196248df49ea47b890873`
+- 运行目录：`/opt/linkplay/releases/a75aa49595bb49dff709c41623f783107276e317`，`current` 指向该目录；`0a4b181`/`e45db13` 目录完整保留供回滚
+- systemd unit：未改动，沿用第三版 `e45db13` 的 StateDirectory 与账号持久化（`/var/lib/linkplay/accounts.json` 不受本次切换影响）；Nginx 配置未改动
 - 公网监听面：**仅 8881（nginx）与 22（sshd）**；内部服务全部只在 127.0.0.1
-- unit 状态：`linkplay` active 且 enabled；内存平稳，子进程正常管理
+
+第四版公网验收（2026-10-05，从开发机走真实公网执行）：
+
+- 切换前本地门禁：黄金矿工联机验收 **19/19**（含新素材六图解码尺寸断言与六图失败兜底负向用例）、平台回归 **15/15**，退出码均 0。
+- 公网 `/health` status=ok；六张新素材公网下载与本地逐字节 SHA-256 一致（6/6 MATCH）。
+- 公网真实 WS 探针：建房 → 加入 → 房主 30 秒共享开局成功（`playing`，round 1）。
+- 公网平台回归（`BASE_URL`）：**15/15 通过**。黄金矿工 dual 套件设计上仅允许回环地址，不作为公网门禁，由上述素材哈希比对与真实开局探针替代覆盖。
+
+### 第三版发布历史（2026-10-05：拼豆自定义画板 + 账号系统 + 大厅两级）
+
+- 运行提交：`e45db13653c4351a2836c20e5f7127ff1f6552c5`（已被第四版 supersede）
+- 发布包 SHA-256：`36b470e11d5a7159e9c0d22366c47e72b11cc579b1213a762cc41f885e382294`
+- 本版上线拼豆自定义长宽矩形板与滚轮缩放/拖动平移/双指手势、`/api/auth` 账号系统、大厅"选游戏 → 选房间"两级结构；unit SHA-256 `8f23638e5cde22c6a07c3506316aaa53c07f7df24d2924e2ce0c30a777cd7f5f`，账号数据首次持久化到 `/var/lib/linkplay/accounts.json`（0640 ubuntu:ubuntu），旧 unit 备份于 `/opt/linkplay/backups/linkplay.service.pre-e45db13.bak`
+- 发布前本地门禁：`npm test` 全量 **37/37 测试文件通过**；公网 auth 探针、`test:arcade` 8/8、拼豆 25/25、平台回归 15/15 全部通过
 
 ## 公网验收记录（2026-10-05）
 
