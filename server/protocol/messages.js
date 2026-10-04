@@ -20,6 +20,7 @@ const CLIENT_MESSAGE_TYPES = new Set([
   "room.leave",
   "game.action",
   "relay.send",
+  "lobby.listRooms",
   "ping",
 ]);
 

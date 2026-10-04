@@ -183,6 +183,15 @@ function createHub(httpServer, manager, options = {}) {
       conn.send(makeMessage("room.left", {}, parsed.requestId));
       return;
     }
+    // 2.5 大厅房间列表（只读查询，未绑房连接也可调用；gameType 过滤，空值返回全部）。
+    if (parsed.type === "lobby.listRooms") {
+      const gameType =
+        parsed.payload && typeof parsed.payload.gameType === "string" && parsed.payload.gameType
+          ? parsed.payload.gameType
+          : "";
+      conn.send(makeMessage("lobby.rooms", { rooms: manager.listRooms(gameType) }, parsed.requestId));
+      return;
+    }
     // 3. 游戏动作与 relay 转发。
     if (parsed.type === "game.action") {
       const action = parsed.payload && parsed.payload.action ? parsed.payload : null;

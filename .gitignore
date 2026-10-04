@@ -4,3 +4,6 @@ outputs/
 providers.yml
 integrations/sources/
 integrations/runtime/
+data/
+tests/.tmp-auth-accounts.json
+tests/.tmp-auth-accounts.json.tmp-*

@@ -17,11 +17,16 @@
             <p>选择一个游戏，进入专属页面开始对战或练习</p>
           </div>
         </div>
-        <a class="lobby-arcade-link" href="arcade.html">开源试玩 →</a>
+        <div class="lobby-user" id="lobbyUserArea">
+          <button type="button" class="user-badge" id="userBadge">游客</button>
+          <button type="button" class="auth-open-btn" id="loginEntryBtn">登录 / 注册</button>
+          <button type="button" class="auth-logout-btn" id="logoutBtn" hidden>退出登录</button>
+          <a class="lobby-arcade-link" href="arcade.html">开源试玩 →</a>
+        </div>
       </header>
 
-      <section class="lobby-grid lobby-grid-wide" aria-label="游戏大厅">
-        <a class="lobby-game available" href="gomoku.html">
+      <section class="lobby-grid lobby-grid-wide" id="lobbyGames" aria-label="选择游戏">
+        <a class="lobby-game available" href="gomoku.html" data-room-game="gomoku" data-game-name="五子棋">
           <div class="lobby-game-art gomoku-art">
             <span></span><span></span><span></span><span></span><span></span>
           </div>
@@ -33,7 +38,7 @@
           <strong>进入游戏</strong>
         </a>
 
-        <a class="lobby-game available" href="tictactoe.html">
+        <a class="lobby-game available" href="tictactoe.html" data-room-game="tictactoe" data-game-name="井字棋">
           <div class="lobby-game-art tictactoe-art">
             <span></span><span></span><span></span><span></span>
           </div>
@@ -45,7 +50,7 @@
           <strong>进入游戏</strong>
         </a>
 
-        <a class="lobby-game available" href="reversi.html">
+        <a class="lobby-game available" href="reversi.html" data-room-game="reversi" data-game-name="黑白棋">
           <div class="lobby-game-art reversi-art">
             <span class="disc dark"></span>
             <span class="disc light"></span>
@@ -60,7 +65,7 @@
           <strong>进入游戏</strong>
         </a>
 
-        <a class="lobby-game available" href="connect4.html">
+        <a class="lobby-game available" href="connect4.html" data-room-game="connect4" data-game-name="四子棋">
           <div class="lobby-game-art connect4-art">
             <span class="red"></span><span class="gold"></span><span class="red"></span><span class="gold"></span>
           </div>
@@ -72,7 +77,7 @@
           <strong>进入游戏</strong>
         </a>
 
-        <a class="lobby-game available" href="monopoly.html">
+        <a class="lobby-game available" href="monopoly.html" data-room-game="monopoly" data-game-name="大富翁">
           <div class="lobby-game-art monopoly-art">
             <span class="chip red"></span>
             <span class="chip blue"></span>
@@ -86,7 +91,7 @@
           <strong>进入游戏</strong>
         </a>
 
-        <a class="lobby-game available" href="ludo.html">
+        <a class="lobby-game available" href="ludo.html" data-room-game="ludo" data-game-name="飞行棋">
           <div class="lobby-game-art ludo-art">
             <span class="plane red"></span>
             <span class="plane blue"></span>
@@ -100,7 +105,7 @@
           <strong>进入游戏</strong>
         </a>
 
-        <a class="lobby-game available" href="checkers.html">
+        <a class="lobby-game available" href="checkers.html" data-room-game="checkers" data-game-name="跳棋">
           <div class="lobby-game-art checkers-art">
             <span class="checker dark"></span>
             <span class="checker light"></span>
@@ -113,7 +118,7 @@
           <strong>进入游戏</strong>
         </a>
 
-        <a class="lobby-game available" href="animal-chess.html">
+        <a class="lobby-game available" href="animal-chess.html" data-room-game="animal-chess" data-game-name="斗兽棋">
           <div class="lobby-game-art animal-art">
             <span class="river"></span>
             <span class="den red"></span>
@@ -129,7 +134,7 @@
           <strong>进入游戏</strong>
         </a>
 
-        <a class="lobby-game available" href="texas.html">
+        <a class="lobby-game available" href="texas.html" data-room-game="texas" data-game-name="德州扑克">
           <div class="lobby-game-art texas-art">
             <span class="card">A</span>
             <span class="card">K</span>
@@ -143,7 +148,7 @@
           <strong>进入游戏</strong>
         </a>
 
-        <a class="lobby-game available" href="blackjack.html">
+        <a class="lobby-game available" href="blackjack.html" data-room-game="blackjack" data-game-name="21点">
           <div class="lobby-game-art blackjack-art">
             <span class="card">A</span>
             <span class="card">10</span>
@@ -157,7 +162,7 @@
           <strong>进入游戏</strong>
         </a>
 
-        <a class="lobby-game available" href="landlord.html">
+        <a class="lobby-game available" href="landlord.html" data-room-game="landlord" data-game-name="斗地主">
           <div class="lobby-game-art landlord-art">
             <span class="card">A</span>
             <span class="card">K</span>
@@ -170,7 +175,7 @@
           </div>
           <strong>进入游戏</strong>
         </a>
-        <a class="lobby-game available" href="gold-miner.html">
+        <a class="lobby-game available" href="gold-miner.html" data-room-game="gold-miner" data-game-name="黄金矿工">
           <div class="lobby-game-art gold-miner-art" aria-hidden="true">
             <img class="gold-miner-card-miner" src="assets/gold-miner/miner.png" alt="" />
             <span class="gold-miner-card-rope"></span>
@@ -191,6 +196,64 @@
           <strong>开始创作</strong>
         </a>
       </section>
+
+      <section class="lobby-rooms" id="lobbyRooms" aria-label="选择房间" hidden>
+        <div class="rooms-toolbar">
+          <button type="button" class="rooms-back-btn" id="backToGamesBtn">← 返回大厅</button>
+          <h2 class="rooms-title" id="roomsTitle">选择房间</h2>
+          <span class="rooms-count" id="roomsCount"></span>
+        </div>
+        <div class="rooms-actions">
+          <button type="button" class="primary-btn rooms-quick-btn" id="quickStartBtn">快速开始</button>
+          <span class="rooms-action-group">
+            <input id="newRoomNameInput" maxlength="20" autocomplete="off" placeholder="房间名（可选）" />
+            <button type="button" id="createRoomBtn">创建房间</button>
+          </span>
+          <span class="rooms-action-group">
+            <input id="joinRoomIdInput" maxlength="8" autocomplete="off" placeholder="输入房间号" />
+            <button type="button" id="joinRoomBtn">加入房间</button>
+          </span>
+        </div>
+        <ul class="room-list" id="roomList"></ul>
+        <p class="rooms-empty" id="roomsEmpty">现在还没有房间，点「创建房间」等朋友进来，或「快速开始」自动匹配。</p>
+      </section>
     </main>
+
+    <div class="modal-backdrop auth-backdrop" id="authModal" hidden>
+      <section class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authDialogTitle">
+        <button type="button" class="auth-close-btn" id="authCloseBtn" aria-label="关闭">✕</button>
+        <div class="auth-tabs" role="tablist">
+          <button type="button" class="auth-tab active" data-auth-tab="login">账号登录</button>
+          <button type="button" class="auth-tab" data-auth-tab="register">注册新账号</button>
+          <button type="button" class="auth-tab" data-auth-tab="guest">游客昵称</button>
+        </div>
+
+        <form class="auth-form" id="authLoginForm" autocomplete="on">
+          <h2 class="auth-form-title" id="authDialogTitle" hidden>账号登录</h2>
+          <label>用户名<input name="username" maxlength="16" autocomplete="username" required /></label>
+          <label>密码<input name="password" type="password" maxlength="64" autocomplete="current-password" required /></label>
+          <p class="auth-error" data-auth-error hidden></p>
+          <button type="submit" class="primary-btn">登录</button>
+        </form>
+
+        <form class="auth-form" id="authRegisterForm" autocomplete="on" hidden>
+          <label>用户名<input name="username" maxlength="16" autocomplete="off" required /></label>
+          <label>昵称（进房展示）<input name="nickname" maxlength="16" autocomplete="nickname" required /></label>
+          <label>密码<input name="password" type="password" maxlength="64" autocomplete="new-password" required /></label>
+          <p class="auth-error" data-auth-error hidden></p>
+          <button type="submit" class="primary-btn">注册并进入</button>
+        </form>
+
+        <form class="auth-form" id="authGuestForm" hidden>
+          <label>昵称（进房展示）<input name="nickname" maxlength="16" autocomplete="off" required /></label>
+          <p class="auth-error" data-auth-error hidden></p>
+          <button type="submit" class="primary-btn">保存并开始</button>
+        </form>
+      </section>
+    </div>
+
+    <script src="net-client.js"></script>
+    <script src="auth-client.js"></script>
+    <script src="lobby-app.js"></script>
   </body>
 </html>

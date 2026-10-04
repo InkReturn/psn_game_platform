@@ -25,16 +25,23 @@ WebSocket 房间层。**不依赖任何第三方实时服务**（无 PeerJS、�
 ## 架构总览
 
 ```
-浏览器 A ─┐                      ┌─ 静态资源（12 个游戏页面 + 大厅）
+浏览器 A ─┐                      ┌─ 静态资源（12 个游戏页面 + 大厅）+ /api/auth 账号 API
           ├─ HTTP(S) ── Nginx ──┤
 浏览器 B ─┘                      └─ WS(S) /ws ── Node.js（Express + ws）
-                                                    ├─ RoomManager  房间生命周期 / 房间码 / 断线宽限
+                                                    ├─ RoomManager  房间生命周期 / 房间码 / 断线宽限 / lobby.listRooms
                                                     ├─ GomokuRoom   五子棋权威对局（服务器唯一状态源）
                                                     └─ 各游戏 Room 权威对局（含 GoldMinerRoom 实时挖矿）
 ```
 
 - **传输层**：单一 WebSocket 端点 `/ws`，协议信封 `{version:1, type, requestId?, payload}`。
   客户端请求带 `requestId`，服务器用同一 `requestId` 关联响应；推送消息不带。
+- **账号系统**：`/api/auth` HTTP 端点（注册/登录/登出/me），scrypt 密码哈希 + Bearer 令牌。
+  账号数据是全平台唯一落盘状态：`data/accounts.json`（原子写，环境变量 `LINKPLAY_AUTH_FILE`
+  可覆盖路径；`data/` 已 gitignore）。游客保留免注册玩法；登录后账号昵称自动同步到所有游戏房间。
+- **大厅两级结构（QQ 游戏大厅式）**：1) 选游戏 → 2) 选房间。`lobby.listRooms` 按游戏返回
+  房间摘要（房名/房间码/人数/状态/房主），大厅轮询展示；「快速开始」自动加入可进房间、
+  无房则自动建房；「创建房间」经 `?create=1` 由各游戏页面板自动建房，房名经
+  `linkplay-pending-room-name` localStorage 中转。
 - **五子棋：服务器权威**。棋盘、轮次、胜负、悔棋、认输、换先、战绩全部由服务器持有与推进；
   客户端只发送操作意图（`game.action`），服务器校验后广播权威快照 `game.updated`。
 - **大厅全部 12 款游戏：服务器权威**。实际 `game-types.js` 与 `RoomManager` 注册表均走各游戏权威 Room；
@@ -49,7 +56,7 @@ WebSocket 房间层。**不依赖任何第三方实时服务**（无 PeerJS、�
 
 | 页面 | 游戏 | 房间模型 |
 |---|---|---|
-| `index.html` | 大厅（选择游戏） | — |
+| `index.html` | 大厅（选游戏 → 选房间，账号登录/游客昵称） | — |
 | `gomoku.html` | 五子棋 | 服务器权威（2 人） |
 | `tictactoe.html` | 井字棋 | 服务器权威 |
 | `reversi.html` | 黑白棋 | 服务器权威 |
@@ -98,21 +105,25 @@ curl http://127.0.0.1:8080/health
 ## 目录结构
 
 ```
-server.js                  进程入口：Express 静态托管 + /health + 优雅停机
+server.js                  进程入口：Express 静态托管 + /health + /api/auth + 优雅停机
+server/auth/account-store.js 账号存储：scrypt 哈希 + JSON 原子写 + Bearer 令牌（data/accounts.json）
+server/auth/routes.js      /api/auth HTTP 路由：register/login/logout/me
 net-client.js              浏览器共享 WS 客户端（requestId 关联、指数退避重连、错误码→中文）
-authoritative-room.js      大厅游戏通用权威房间面板（身份/邀请/恢复/只读快照）
+auth-client.js             浏览器共享账号客户端（token 存取、auth API 封装、昵称同步）
+lobby-app.js               大厅应用：两级视图切换 + 房间列表轮询 + 登录弹窗
+authoritative-room.js      大厅游戏通用权威房间面板（身份/邀请/恢复/只读快照/?create=1 自动建房）
 room-common.js             旧 relay 兼容面板，不用于黄金矿工
 gold-miner-rules.js         黄金矿工唯一规则/物理/计时/计分，CommonJS及浏览器共用
 gold-miner.js               黄金矿工只读Canvas渲染及start/drop操作意图
-gomoku-net.js              五子棋联机面板（房间 UI + 凭据保存 + 身份恢复）
+gomoku-net.js              五子棋联机面板（房间 UI + 凭据保存 + 身份恢复 + ?create=1）
 gomoku-app.js              五子棋渲染层（服务器权威快照渲染 + 本地模式规则）
 server/
   config.js                全部可调常量（端口、宽限期、TTL、限频、心跳）
   protocol/errors.js       错误码枚举
-  protocol/messages.js     信封封装 + 客户端消息类型白名单
-  rooms/room-base.js       成员管理基类（加入/断线/重连/移除 + 断线宽限计时）
+  protocol/messages.js     信封封装 + 客户端消息类型白名单（含 lobby.listRooms）
+  rooms/room-base.js       成员管理基类（加入/断线/重连/移除 + 断线宽限计时 + 大厅摘要 summary()）
   rooms/relay-room.js      relay 房间（转发）
-  rooms/room-manager.js    房间生命周期唯一入口（创建/加入/重连/离开/清理）
+  rooms/room-manager.js    房间生命周期唯一入口（创建/加入/重连/离开/清理 + listRooms）
   games/gomoku-engine.js   15x15 规则引擎（落子合法性、五连判定）
   games/gomoku-room.js     五子棋权威对局（快照字段与原客户端一致）
   ws/hub.js                WebSocket 装配（心跳、限频、大小限制、路由）
@@ -123,10 +134,11 @@ tests/                     协议测试 + 浏览器测试 + 统一 runner
 
 | type | 说明 |
 |---|---|
-| `room.create` | `{gameType, prefix, nickname}` → `room.created`（含 `roomId/playerId/reconnectToken/snapshot`） |
+| `room.create` | `{gameType, prefix, nickname, roomName?}` → `room.created`（含 `roomId/playerId/reconnectToken/snapshot`；`roomName` 可选，≤20 字符，缺省为"{房主昵称}的房间"） |
 | `room.join` | `{roomId, nickname, gameType?}` → `room.joined` |
 | `room.reconnect` | `{roomId, playerId, reconnectToken}` → `room.reconnected`（断线宽限期内恢复座位） |
 | `room.leave` | 主动离开 → `room.left` |
+| `lobby.listRooms` | `{gameType?}` → `lobby.rooms`（房间摘要列表：房名/房间码/人数/在线数/上限/状态 waiting·playing·finished/房主/创建时间；大厅房间列表用） |
 | `game.action` | 各游戏权威意图；黄金矿工仅 `start`（mode/durationSeconds）及 `drop`（无金额/角度/目标） |
 | `relay.send` | `{event, data, targetId?}` → 广播或定向 `relay.message` |
 | `ping` | 应用层心跳 → `pong` |
@@ -160,8 +172,10 @@ npm run test:dual        # 仅五子棋双端验收（自行在 18082 端口拉�
 |---|---|
 | `tests/run-all.cjs` | 统一 runner：在 18080 拉起被测服务器，注入 `BASE_URL`，汇总各文件退出码 |
 | `tests/server-protocol.cjs` | 25 项：房间创建/加入/满员/不存在、轮次与占位校验、五连胜负、再来一局换先、悔棋、认输、重开、断线重连、伪造令牌、非法消息、relay 转发、健康检查 |
+| `tests/auth-smoke.cjs` | 7 项：注册（重复/非法用户名/短密码）、登录（大小写不敏感/错密码）、me 四种令牌行为、登出吊销与再登录 |
+| `tests/lobby-rooms-smoke.cjs` | 7 项：房名摘要、缺省房名回退、gameType 过滤、加入/离开人数与状态、开局转 playing、未知类型空列表、超长房名截断 |
 | `tests/gomoku-dual.cjs` | 8 项：两个独立浏览器上下文完成建房→邀请链接加入→轮流落子同步→越权被拒→重复落子→刷新恢复→五连胜负，并断言全程只访问本源域名 |
-| `tests/lobby-smoke.cjs` | 大厅跳转到五子棋 |
+| `tests/lobby-smoke.cjs` | 大厅两级结构：点卡进房间视图 → 返回 → 创建房间 `?create=1` 自动建房 |
 | `tests/gomoku-smoke.cjs` | 五子棋联机建房/刷新恢复 + 本地模式完整对局、悔棋、结算、再来一局、认输 |
 | `tests/games-smoke.cjs` | 10 款既有权威游戏建房冒烟，完整对局另由各游戏 dual 套件覆盖 |
 | `tests/grid-games-smoke.cjs` | 井字棋/黑白棋/四子棋本地规则与计时 |

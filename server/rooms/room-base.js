@@ -35,6 +35,8 @@ class RoomBase {
     this.gameType = gameType;
     this.createdAt = Date.now();
     this.updatedAt = Date.now();
+    /** 房间名（大厅房间列表展示用；由 RoomManager 建房时赋值）。 */
+    this.roomName = null;
     /** @type {Map<string, object>} playerId -> player */
     this.players = new Map();
     /** 房间内允许的最大玩家数（gomoku 2 人；relay 房默认较大以支持多人观战/本地混合）。 */
@@ -173,6 +175,38 @@ class RoomBase {
   /** 房间是否已无任何玩家（含断线宽限中的玩家）。 */
   isEmpty() {
     return this.players.size === 0;
+  }
+
+  /**
+   * 大厅房间列表摘要（lobby.listRooms 展示用，不含隐私数据）。
+   *
+   * 状态映射：各权威房子类维护 this.status（waiting/playing/finished），
+   * relay 房为 "open"；未声明状态的房间一律按等待中处理。
+   *
+   * @returns {{roomId: string, gameType: string, roomName: string, players: number,
+   *   onlinePlayers: number, maxPlayers: number, status: string, hostNickname: string,
+   *   createdAt: number}} 房间摘要。
+   */
+  summary() {
+    const players = [...this.players.values()];
+    // 1. 房主优先取 host 标记，异常缺失时回退最早加入的成员。
+    const host = players.find((p) => p.host) || players[0] || null;
+    // 2. 对局状态归一为 waiting/playing/finished 三态。
+    const raw = this.status || "open";
+    const status = raw === "playing" || raw === "finished" ? raw : "waiting";
+    // 3. 房间名缺省展示"{房主昵称}的房间"。
+    const roomName = this.roomName || `${host ? host.nickname : "神秘玩家"}的房间`;
+    return {
+      roomId: this.roomId,
+      gameType: this.gameType,
+      roomName,
+      players: players.length,
+      onlinePlayers: players.filter((p) => p.connected).length,
+      maxPlayers: this.maxPlayers,
+      status,
+      hostNickname: host ? host.nickname : "",
+      createdAt: this.createdAt,
+    };
   }
 
   /** 房间是否已无在线连接。 */

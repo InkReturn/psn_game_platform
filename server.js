@@ -13,15 +13,18 @@ const path = require("path");
 const { createHub } = require("./server/ws/hub");
 const { arcadeCatalog, arcadeNetwork, tetrisPage } = require("./server/arcade.cjs");
 const { RoomManager } = require("./server/rooms/room-manager");
+const { createAccountStore } = require("./server/auth/account-store");
+const { createAuthRouter } = require("./server/auth/routes");
 const { BIND_HOST, PORT, DISCONNECT_GRACE_MS, ROOM_IDLE_TTL_MS } = require("./server/config");
 
 const app = express();
 const server = createServer(app);
 const rootDir = __dirname;
 
-// 1. 房间管理器与 WebSocket 装配。
+// 1. 房间管理器、账号存储与 WebSocket 装配。
 const manager = new RoomManager();
 const hub = createHub(server, manager);
+const accountStore = createAccountStore();
 
 // 2. 轻量健康检查：不含任何隐私数据。
 app.get("/health", (_req, res) => {
@@ -37,6 +40,9 @@ app.get("/health", (_req, res) => {
 app.get("/api/arcade", arcadeCatalog);
 app.get("/api/arcade-network.js", arcadeNetwork);
 app.get(["/vendor/tetris/home", "/vendor/tetris/singleplayer"], tetrisPage);
+
+// 3.5 账号 HTTP API（注册/登录/登出/当前账号）；JSON 解析仅作用于该前缀。
+app.use("/api/auth", express.json({ limit: "16kb" }), createAuthRouter({ store: accountStore }));
 
 // 4. 静态资源（大厅与全部游戏页面）。
 app.use(express.static(rootDir, { index: "index.html" }));

@@ -160,3 +160,32 @@ Original prompt: 写一个能在github上搭建的多人链接小游戏平台，
   测试矩阵、Nginx + HTTPS/WSS + systemd 部署步骤。
 - 验证：`npm test` 6/6 测试文件通过（协议 25/25、双端 8/8）；五子棋本地模式与其余 10 款游戏回归均通过。
 - 已知约定：房间与对局状态仅存进程内存，服务重启即丢失；跨设备持久房间留待后续引入存储层。
+
+## 2026-10-04 账号系统 + 大厅两级结构（选游戏 → 选房间）
+
+- 新增账号系统（全平台首个落盘数据）：`server/auth/account-store.js`（scrypt 密码哈希 +
+  16 字节盐 + timingSafeEqual 校验、JSON 原子写 `data/accounts.json`、Bearer 令牌单设备语义、
+  损坏文件备份重建）与 `server/auth/routes.js`（POST /api/auth/register|login|logout、GET me），
+  挂载于 server.js；账号文件路径可用 `LINKPLAY_AUTH_FILE` 覆盖，`data/` 与测试临时文件已 gitignore。
+- 新增浏览器共享账号客户端 `auth-client.js`：token 存取（`linkplay-auth-token`）、API 封装、
+  登录/注册后把账号昵称同步到全平台共享键 `linkplay-name`，游客玩法零改动保留。
+- 大厅改版为 QQ 游戏大厅式两级结构（沿用现有暗色卡片视觉）：一级选游戏（12 款联机卡 +
+  拼豆/试玩直跳），二级选房间（`lobby-app.js` 轮询 `lobby.listRooms` 展示房名/房间码/人数/
+  状态/房主，支持房间行点击、房间号前缀校验直加、创建房间、快速开始=自动匹配或自动建房）；
+  顶栏用户徽章 + 登录/注册/游客昵称三 Tab 弹窗。
+- 协议扩展：`lobby.listRooms` → `lobby.rooms`（RoomBase.summary() 摘要、RoomManager.listRooms、
+  hub 路由）；`room.create` 支持可选 `roomName`（≤20 字符，缺省"{房主昵称}的房间"）；
+  `authoritative-room.js` 与 `gomoku-net.js` 支持 `?create=1` 自动建房与
+  `linkplay-pending-room-name` 房名中转。
+- 样式：styles.css 追加用户区/房间列表/登录弹窗样式（全部沿用现有 CSS 变量），修复全局
+  `input{width:100%}` 挤压房间操作区按钮换行的问题，房间视图加载态与空态文案分开。
+- 测试：新增 `tests/auth-smoke.cjs`（7 项 HTTP API）、`tests/lobby-rooms-smoke.cjs`（7 项 WS 协议）、
+  重写 `tests/lobby-smoke.cjs`（两级结构 + ?create=1 自动建房）、更新 `tests/gold-miner-dual.cjs`
+  A01（大厅点卡改为进房间视图，且不再污染后续用例的未进房状态）、run-all 注册新套件并为共享
+  服务器注入独立临时账号文件。
+- 验证：auth 7/7、lobby-rooms 7/7、lobby-smoke 通过（截图 outputs/lobby-rooms-view.png 与
+  lobby-create-room.png）、platform-regression 15/15（13 入口 href 断言保持）、
+  gold-miner-dual 19/19；npm test 中其余 31 套件全部通过。
+- 已知事项（非本轮引入）：工作区存在未提交的拼豆半成品改动（beads-*.js/html/css 与其测试），
+  其 `tests/beads-model.cjs` 4 项与 `tests/beads-browser.cjs` 失败为该半成品自带——
+  HEAD 基线上 beads-model 19/19 通过（已用 worktree 基线验证），与登录/大厅改动无关，未触碰。

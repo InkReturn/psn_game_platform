@@ -11,16 +11,21 @@
 "use strict";
 
 const { spawn } = require("child_process");
+const fs = require("fs");
 const path = require("path");
 
 /** 浏览器类用例共用的站点端口。 */
 const APP_PORT = 18080;
 /** 站点地址（浏览器类用例通过 BASE_URL 读取）。 */
 const BASE_URL = `http://127.0.0.1:${APP_PORT}`;
+/** 被测服务器使用的独立账号文件（不污染开发库；结束即删）。 */
+const TMP_AUTH_FILE = path.join(__dirname, ".tmp-auth-accounts.json");
 
 /** 待执行用例：文件路径 + 说明。 */
 const SUITES = [
   { file: "tests/server-protocol.cjs", label: "服务端协议（WS 直连）" },
+  { file: "tests/auth-smoke.cjs", label: "账号 HTTP API（注册/登录/me/登出）" },
+  { file: "tests/lobby-rooms-smoke.cjs", label: "大厅房间列表协议（lobby.listRooms/房名/状态）" },
   { file: "tests/room-sync.cjs", label: "房间成员实时同步回归（双客户端）" },
   { file: "tests/animal-chess-rules.cjs", label: "斗兽棋规则单元测试" },
   { file: "tests/grid-rules.cjs", label: "棋类规则单元测试（井字棋/黑白棋/四子棋/五子棋引擎）" },
@@ -38,7 +43,7 @@ const SUITES = [
   { file: "tests/texas-rules.cjs", label: "德州扑克规则单元测试（牌力评估/摊牌平分/轮次辅助）" },
   { file: "tests/texas-authority.cjs", label: "德州扑克权威房间 WS 联机测试（底牌隔离/公共牌进度/隐私泄漏负向）" },
   { file: "tests/animal-chess-dual.cjs", label: "斗兽棋服务器权威双客户端验收" },
-  { file: "tests/lobby-smoke.cjs", label: "大厅 → 五子棋导航" },
+  { file: "tests/lobby-smoke.cjs", label: "大厅两级结构（选游戏→选房间→自动建房）" },
   { file: "tests/gomoku-smoke.cjs", label: "五子棋冒烟（联机链路）" },
   { file: "tests/games-smoke.cjs", label: "联机游戏建房（权威房十款冒烟）" },
   { file: "tests/gomoku-dual.cjs", label: "五子棋双端联机验收" },
@@ -67,12 +72,20 @@ let appServer = null;
  * @returns {Promise<void>} 就绪后 resolve；提前退出或超时抛错。
  */
 async function startAppServer(timeoutMs = 20000) {
-  // 1. 拉起服务器进程，输出直接透传便于排查。
+  // 1. 清理上次运行残留的临时账号文件，保证每轮账号测试基线干净。
+  for (const stale of [TMP_AUTH_FILE, `${TMP_AUTH_FILE}.tmp-*`]) {
+    try {
+      fs.rmSync(stale, { force: true });
+    } catch {
+      /* 清理失败继续：账号测试用随机用户名，不会互相撞库 */
+    }
+  }
+  // 2. 拉起服务器进程，输出直接透传便于排查；账号文件指向临时路径。
   appServer = spawn(process.execPath, [path.join(__dirname, "..", "server.js")], {
-    env: { ...process.env, PORT: String(APP_PORT), BIND_HOST: "127.0.0.1" },
+    env: { ...process.env, PORT: String(APP_PORT), BIND_HOST: "127.0.0.1", LINKPLAY_AUTH_FILE: TMP_AUTH_FILE },
     stdio: ["ignore", "inherit", "inherit"],
   });
-  // 2. 轮询 /health 直到可服务（不能用固定 sleep：冷启动耗时不确定）。
+  // 3. 轮询 /health 直到可服务（不能用固定 sleep：冷启动耗时不确定）。
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     if (appServer.exitCode !== null) throw new Error(`app server exited early (code ${appServer.exitCode})`);
@@ -117,9 +130,16 @@ function runSuite(suite) {
     outcomes.push(await runSuite(suite));
   }
 
-  // 3. 收尾：关闭服务器。
+  // 3. 收尾：关闭服务器并清理临时账号文件。
   appServer.kill("SIGTERM");
   await new Promise((resolve) => setTimeout(resolve, 300));
+  for (const stale of [TMP_AUTH_FILE, `${TMP_AUTH_FILE}.tmp-*`]) {
+    try {
+      fs.rmSync(stale, { force: true });
+    } catch {
+      /* 清理失败不阻塞结果汇总 */
+    }
+  }
 
   // 4. 汇总结果。
   const failed = outcomes.filter((o) => o.code !== 0);

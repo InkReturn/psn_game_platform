@@ -306,7 +306,21 @@
       updateStatus();
       try {
         await net.connect();
-        const res = await net.request("room.create", { gameType, prefix, nickname: state.nickname, ...(createPayload?.() || {}) });
+        // 1. 大厅「创建房间」中转的房名：读一次即清，避免下次建房残留。
+        let pendingRoomName = "";
+        try {
+          pendingRoomName = (localStorage.getItem("linkplay-pending-room-name") || "").trim().slice(0, 20);
+          localStorage.removeItem("linkplay-pending-room-name");
+        } catch {
+          pendingRoomName = "";
+        }
+        const res = await net.request("room.create", {
+          gameType,
+          prefix,
+          nickname: state.nickname,
+          ...(pendingRoomName ? { roomName: pendingRoomName } : {}),
+          ...(createPayload?.() || {}),
+        });
         state.roomId = res.payload.roomId;
         state.playerId = res.payload.playerId;
         state.role = res.payload.role || "host";
@@ -397,6 +411,7 @@
 
     // 1. 页面加载：URL 带房间码或本地有凭据时自动恢复身份。
     const roomFromUrl = normalizeRoomId(new URLSearchParams(window.location.search).get("room"));
+    const autoCreate = new URLSearchParams(window.location.search).get("create") === "1";
     const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
     if (roomFromUrl) {
       state.roomId = roomFromUrl;
@@ -410,6 +425,10 @@
       } else {
         joinRoom(roomFromUrl);
       }
+    } else if (autoCreate) {
+      // 1.1 大厅"创建房间"入口（?create=1）：跳过本地旧凭据，直接开一间新房；
+      //     建房成功后 URL 会被替换为 ?room=xx，刷新即走正常恢复流程。
+      createRoom();
     } else if (saved?.roomId && saved?.reconnectToken) {
       state.roomId = saved.roomId;
       state.role = saved.role || "guest";

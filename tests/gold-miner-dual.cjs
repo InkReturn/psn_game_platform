@@ -488,10 +488,15 @@ async function scenario(name, f) {
       }
       break;
     }
-    case "A01 大厅第十二入口及页面初始90秒": {
+    case "A01 大厅两级导航及页面初始90秒": {
       await f.a.goto(f.base + "/index.html"); assert.equal(await f.a.locator(".lobby-game").count(), 13);
+      // 1. 点击黄金矿工卡不再直接跳转，而是进入"选择房间"二级视图。
       await f.a.locator('.lobby-game[href="gold-miner.html"]').click();
-      await f.a.waitForFunction(/** 确认从大厅跳转后游戏页面观测钩子已安装。
+      await f.a.locator("#lobbyRooms:not([hidden])").waitFor();
+      assert.ok((await f.a.locator("#roomsTitle").innerText()).includes("黄金矿工"), "房间视图标题应包含黄金矿工");
+      // 2. 直接打开游戏页断言初始 90 秒（不自动建房，保持页面未进房状态给后续场景使用）。
+      await f.a.goto(f.base + "/gold-miner.html");
+      await f.a.waitForFunction(/** 确认游戏页面观测钩子已安装。
         * @returns {boolean} 钩子为函数时为真；仅检查全局类型，不调用钩子，无副作用或预期异常。
         */
        () => { /* 1. 等待渲染钩子确实初始化。 */ return typeof window.render_game_to_text === "function"; });
@@ -914,7 +919,7 @@ async function main() {
     f.a = await f.contextA.newPage(); f.b = await f.contextB.newPage();
     for (const page of [f.a, f.b]) watchPage(page, f);
     // 3. 顺序执行场景，所有网络与终局均真实，不模拟推进时间。
-    const names = ["A02 真实WS六人上限与第七人无幽灵成员", "A03 A05 A06 A12 真实WS权限非法配置与全字段伪造", "A08 真实WS两人争同一钻石且只能计一次", "A04 真实WS自定义10、65、120、600秒", "A01 大厅第十二入口及页面初始90秒", "A02 两个真正独立上下文邀请加入与身份隔离", "A07 房主共享10秒统一开局与倒计时禁用", "A08 A10 A11 按钮与空格真实抢矿回收计分", "A16 刷新恢复身份分数矿场及原截止", "A13 A14 真实服务器截止结算与金额稳定", "A09 A15 再开独立竞速相同模板新局清分", "A09 独立矿场甲回收不改变乙矿场", "A10 A16 触屏放钩断线继续回收与自动恢复", "A17 真浏览器晚加入等待下一局", "A18 房主退出保留别人分数并实时交接权限", "A14 A15 退出无获胜资格新房主可再开65秒", "A20 桌面手机布局健康和输入空格不误放钩", "A21 本地六张素材可解码且无第三方请求", "A21 六图解码失败可见告警且仍能真实回收计分"];
+    const names = ["A02 真实WS六人上限与第七人无幽灵成员", "A03 A05 A06 A12 真实WS权限非法配置与全字段伪造", "A08 真实WS两人争同一钻石且只能计一次", "A04 真实WS自定义10、65、120、600秒", "A01 大厅两级导航及页面初始90秒", "A02 两个真正独立上下文邀请加入与身份隔离", "A07 房主共享10秒统一开局与倒计时禁用", "A08 A10 A11 按钮与空格真实抢矿回收计分", "A16 刷新恢复身份分数矿场及原截止", "A13 A14 真实服务器截止结算与金额稳定", "A09 A15 再开独立竞速相同模板新局清分", "A09 独立矿场甲回收不改变乙矿场", "A10 A16 触屏放钩断线继续回收与自动恢复", "A17 真浏览器晚加入等待下一局", "A18 房主退出保留别人分数并实时交接权限", "A14 A15 退出无获胜资格新房主可再开65秒", "A20 桌面手机布局健康和输入空格不误放钩", "A21 本地六张素材可解码且无第三方请求", "A21 六图解码失败可见告警且仍能真实回收计分"];
     let executed = 0;
     for (const name of names) {
       await test(name,

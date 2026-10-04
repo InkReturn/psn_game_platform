@@ -120,6 +120,9 @@ class RoomManager {
     const prefix = String(payload.prefix || roomPrefixOf(gameType)).slice(0, 2);
     const roomId = this.generateRoomId(prefix);
     const room = AUTHORITATIVE_ROOMS[gameType] ? AUTHORITATIVE_ROOMS[gameType](roomId, payload) : new RelayRoom(roomId, gameType);
+    // 3.1 房间名：可选，1-20 个字符；缺省由 summary() 回退为"{房主昵称}的房间"。
+    const rawRoomName = typeof payload.roomName === "string" ? payload.roomName.trim() : "";
+    if (rawRoomName) room.roomName = rawRoomName.slice(0, 20);
     this.rooms.set(roomId, room);
     // 4. 创建者入座（标记房主）并绑定连接。
     const player = room.createPlayer(nickname, { host: true });
@@ -380,6 +383,24 @@ class RoomManager {
   /** 统计信息（供 /health 使用，不含隐私数据）。 */
   stats() {
     return { activeRooms: this.rooms.size };
+  }
+
+  /**
+   * 大厅房间列表：按 gameType 过滤当前存活房间并输出摘要。
+   *
+   * @param {string} [gameType] - 游戏类型；为空返回全部房间（大厅首页统计用）。
+   * @returns {Array<object>} RoomBase.summary() 摘要数组，按创建时间升序（老房在前，稳定展示）。
+   */
+  listRooms(gameType) {
+    const rooms = [];
+    for (const room of this.rooms.values()) {
+      // 1. 类型过滤：空值不过滤；relay 房按完整 gameType 匹配。
+      if (gameType && room.gameType !== gameType) continue;
+      rooms.push(room.summary());
+    }
+    // 2. 按创建时间升序，列表刷新时不跳位。
+    rooms.sort((a, b) => a.createdAt - b.createdAt);
+    return rooms;
   }
 }
 

@@ -2588,3 +2588,487 @@ canvas {
     width: min(100%, calc(100svh - 220px));
   }
 }
+
+/* ============================================================
+ * 大厅两级结构（选游戏 → 选房间）与账号 UI
+ * ============================================================ */
+
+/* 顶栏用户区：徽章 + 登录/退出按钮 + 试玩入口。 */
+.lobby-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.user-badge {
+  padding: 7px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.user-badge:hover {
+  border-color: rgba(12, 124, 89, 0.45);
+}
+
+.user-badge.logged-in {
+  border-color: rgba(12, 124, 89, 0.5);
+  background: rgba(12, 124, 89, 0.08);
+  color: var(--accent-dark);
+  cursor: default;
+}
+
+.auth-open-btn,
+.auth-logout-btn {
+  padding: 7px 14px;
+  border: 1px solid rgba(12, 124, 89, 0.5);
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.auth-open-btn:hover,
+.auth-logout-btn:hover {
+  background: var(--accent-dark);
+}
+
+.auth-logout-btn {
+  background: var(--panel);
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+.auth-logout-btn:hover {
+  color: var(--warn);
+  border-color: rgba(180, 95, 6, 0.5);
+  background: var(--panel-soft);
+}
+
+.lobby-arcade-link {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  color: var(--muted);
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.lobby-arcade-link:hover {
+  color: var(--accent-dark);
+  border-color: rgba(12, 124, 89, 0.45);
+}
+
+/* grid 布局容器上 hidden 属性需要显式覆盖 display。 */
+.lobby-grid[hidden],
+.lobby-rooms[hidden] {
+  display: none;
+}
+
+/* 二级视图：房间列表。 */
+.lobby-rooms {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.rooms-toolbar {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.rooms-back-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.rooms-back-btn:hover {
+  border-color: rgba(12, 124, 89, 0.45);
+  transform: translateX(-1px);
+}
+
+.rooms-title {
+  margin: 0;
+  font-size: 22px;
+}
+
+.rooms-count {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.rooms-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 8px 22px rgba(42, 52, 66, 0.08);
+}
+
+.rooms-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rooms-actions input {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  color: var(--ink);
+  font-size: 14px;
+  min-width: 0;
+  /* 覆盖全局 input 的 width:100%（那会让 inline-flex 组内输入框撑爆并挤换行按钮）。 */
+  width: 200px;
+  max-width: 42vw;
+  flex: 0 1 auto;
+}
+
+.rooms-actions input:focus {
+  outline: none;
+  border-color: rgba(12, 124, 89, 0.55);
+  background: #ffffff;
+}
+
+.rooms-actions input::placeholder {
+  color: var(--muted);
+}
+
+.rooms-actions button {
+  padding: 9px 16px;
+  border: 1px solid rgba(12, 124, 89, 0.5);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--accent-dark);
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.rooms-actions button:hover {
+  background: rgba(12, 124, 89, 0.08);
+}
+
+.rooms-actions .rooms-quick-btn {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.rooms-actions .rooms-quick-btn:hover {
+  background: var(--accent-dark);
+}
+
+/* 房间行：整行可点，满员降透明度。 */
+.room-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.room-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto auto auto;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 8px 22px rgba(42, 52, 66, 0.08);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.room-row:hover {
+  border-color: rgba(12, 124, 89, 0.45);
+  transform: translateY(-1px);
+}
+
+.room-row.full {
+  opacity: 0.62;
+  cursor: default;
+}
+
+.room-row.full:hover {
+  transform: none;
+}
+
+.room-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.room-name {
+  font-size: 16px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-id {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+.room-host {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.room-players {
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.room-status-badge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.room-status-badge.waiting {
+  background: rgba(12, 124, 89, 0.12);
+  color: var(--accent-dark);
+}
+
+.room-status-badge.playing {
+  background: rgba(180, 95, 6, 0.14);
+  color: var(--warn);
+}
+
+.room-status-badge.finished {
+  background: var(--panel-soft);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.room-action button {
+  padding: 8px 18px;
+  border: 1px solid rgba(12, 124, 89, 0.5);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.room-action button:hover {
+  background: var(--accent-dark);
+}
+
+.room-row.full .room-action {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.rooms-empty {
+  margin: 0;
+  padding: 44px 20px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft);
+  color: var(--muted);
+  text-align: center;
+}
+
+/* 登录/注册/游客弹窗：覆盖 .modal-backdrop 的右下角定位为全屏遮罩。 */
+.auth-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(23, 33, 43, 0.46);
+  pointer-events: auto;
+}
+
+.auth-backdrop[hidden] {
+  display: none;
+}
+
+.auth-dialog {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  width: min(380px, calc(100vw - 48px));
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.auth-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.auth-close-btn:hover {
+  background: var(--panel-soft);
+  color: var(--ink);
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 9px 4px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.auth-tab:hover {
+  color: var(--ink);
+}
+
+.auth-tab.active {
+  color: var(--accent-dark);
+  border-bottom-color: var(--accent);
+  font-weight: 700;
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-form[hidden] {
+  display: none;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.auth-form input {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.auth-form input:focus {
+  outline: none;
+  border-color: rgba(12, 124, 89, 0.55);
+  background: #ffffff;
+}
+
+.auth-error {
+  margin: 0;
+  color: #b3261e;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* 窄屏适配：房间行改为纵向堆叠，操作按钮占满一行。 */
+@media (max-width: 720px) {
+  .room-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "main players"
+      "main status"
+      "host action";
+    row-gap: 8px;
+  }
+
+  .room-main {
+    grid-area: main;
+  }
+
+  .room-host {
+    grid-area: host;
+  }
+
+  .room-players {
+    grid-area: players;
+    justify-self: end;
+  }
+
+  .room-status-badge {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .room-action {
+    grid-area: action;
+    justify-self: end;
+  }
+
+  .rooms-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rooms-action-group {
+    width: 100%;
+  }
+
+  .rooms-action-group input {
+    flex: 1;
+  }
+}
+
