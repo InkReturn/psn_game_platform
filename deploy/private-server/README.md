@@ -4,7 +4,7 @@
 
 当前目标：`http://111.229.38.64:8881`，Ubuntu 26.04，个人非商用试玩。用户确认包含原 11 款、拼豆与四款开源试玩，并授权安装 Node/npm/Nginx、独立常驻服务与发布目录。旧域名服务器、SSH、云防火墙不在本轮修改范围。
 
-本文件当前为发布候选操作记录，**尚未完成公网验收**。实际上线 SHA、配置哈希及验收结果在完成后追加；不能把本机检查当作公网证据。
+**2026-10-04 已完成公网部署与真实验收**，实际运行记录见下文。
 
 ## 部署拓扑
 
@@ -17,15 +17,32 @@
 
 网络模式由 `/api/arcade-network.js` 显式声明：直接访问回环 Node 时为开发直连，公网 Nginx 为同源代理。客户端不按 hostname 猜测，声明缺失时只能尝试同源路径，不能自动退回内部端口。包装页不得再次注入 `:2567` 覆盖。
 
-运行目录：`/opt/linkplay/releases/<完整提交 SHA>`；`/opt/linkplay/current` 指向已验证版本。配置快照为本目录 `linkplay.service`、`linkplay.conf`，分别安装到 `/etc/systemd/system/linkplay.service`、`/etc/nginx/conf.d/linkplay.conf`。运行配置与仓库快照须逐字节核对。
+## 实际运行版本（2026-10-04）
+
+- 运行提交：`de7afad5bf5472e402d00f3a4849ba3f5a9a1156`（main 分支）
+- 发布包 SHA-256：`7931d6a1df2655ea4c4af2ee7ac3693156d0871cccb60df85ced648b10a35549`
+- 运行目录：`/opt/linkplay/releases/de7afad5bf5472e402d00f3a4849ba3f5a9a1156`，`current` 指向该目录；包内 `source.tar.gz` 即公开源码与许可包
+- systemd unit：`/etc/systemd/system/linkplay.service`，SHA-256 `8fcf357db5bbf286c4968a4ee2cf8ed3b172f7d34636a8890bd5adf1c44ca003`
+- Nginx 配置：`/etc/nginx/conf.d/linkplay.conf`，SHA-256 `57775f5f562549c5522aec1b4a2b4f99dc84a08ddedb4d4c8d8a9b14d7c26280`
+- 以上两文件与仓库快照逐字节一致（sha256 直接比对通过）
+- 公网监听面：**仅 8881（nginx）与 22（sshd）**；8080/2567/8093 全部只在 127.0.0.1
+- 两个 unit 均 active 且 enabled（重启自动拉起）；linkplay 零重启，内存约 190MB，67 任务
+- Ubuntu 仓库发行版运行时：Node `v22.22.1`、npm `9.2.0`、Nginx `1.28.3`；包安装前已 mask 新 nginx，配置通过 `nginx -t` 后才解除，默认 80 站点 symlink 已移除（源文件保留在 sites-available）
+
+## 公网验收记录（2026-10-04）
+
+从开发机走真实公网 `http://111.229.38.64:8881` 执行：
+
+- `npm run test:arcade`（`BASE_URL` + `EXPECT_ARCADE_PROXY=1`）：**8/8 通过**——目录 4 款可玩、Lichess 待接入不冒充；大厅 12 入口、375px 无溢出；方块真实开局；地产桌游 2 人同屏；坦克双端进入同一权威房间并真实收发；像素冒险双角色完成握手、世界人数 ≥2、收到游戏帧；非法编号不挂 iframe；公网声明、内部路径 404、署名页全部通过。`errors=[]`、`remoteRequests=[]`（无外部 CDN 依赖）。
+- 拼豆浏览器验收（`BASE_URL` 公网非安全源）：**24/24 通过**——含 HTTP 无 Web Locks 事务保存、实际关闭浏览器后恢复、旧 localStorage 迁移保留原文、未知读取基线重试不遮蔽。
+- 核心 `/ws` 协议探针：公网建房 → 加入自动开局 → 双方真实落子 → 权威快照一致，全部成功。
+- 曾发现公网首载素材 20–30 秒导致验收超时；已放宽该用例等待至 90s（公网档），非应用缺陷。
+- 曾出现一次脚本中断留下孤儿 npm 进程与并发 `npm ci` 争锁；按精确 PID 终止双方后单独重装，未影响任何未知进程。
 
 ## 已完成的环境准备
 
 - 安装前确认机器无 Node/npm/Nginx、无本项目目录／unit、8881 空闲，公网监听仅 SSH。
-- 使用 Ubuntu 官方发行版包：Node `v22.22.1`、npm `9.2.0`、Nginx `1.28.3`。
-- 首次安装前 mask 新的 Nginx unit，避免包安装自动启动默认 80 站点。必须在仅 8881 的配置通过 `nginx -t` 后解除 mask。
-- 安装命令最后一行曾因 PowerShell stdin 尾部 CR 导致退出 1；复核确认安装实际成功、`dpkg --audit` 无输出、Nginx inactive、无新公网监听。没有盲目重装。
-- Windows 向 Bash 传脚本时先规范化 CR/LF；例如远端 `tr -d "\r" | bash -s`。配置文件必须为 LF、无 BOM。
+- Windows 向 Bash 传脚本先 `tr -d "\r"`；配置文件 LF、无 BOM（服务器上实测 0 个 CR）。
 
 ## 发布步骤与回滚边界
 
@@ -33,10 +50,9 @@
 2. 将批准计划的主分支保存提交合入任务分支，处理计划冲突但保留两份历史；再把已验证任务分支合入 `main`。没有 push/tag 授权。
 3. 从固定提交 `git archive` 生成包，核对完整 SHA、包 SHA-256 和清单；不包含 `.git`、忽略的依赖／输出／凭据。保留该原始包作为公开 `source.tar.gz`，满足修改源文件与许可证获取。
 4. 上传到独立发布目录；根依赖 `npm ci --omit=dev --ignore-scripts --no-audit --no-fund`，独立试玩依赖用 `npm run arcade:install`。后者固定 lockfile、忽略第三方安装脚本，并保留运行所需 tsx。
-5. 备份本项目已有配置及上一版 current 指向。首次仅挪走本次新安装产生的默认 Nginx 站点链接；确认目标绝对路径和归属，不影响未知站点。
+5. 备份本项目已有配置及上一版 current 指向。首次发布仅移除本次新安装产生的默认 Nginx 站点链接；确认目标绝对路径和归属，不影响未知站点。
 6. 写入独立 unit 与 Nginx 配置，运行 `systemd-analyze verify`、`nginx -t`，通过后启用服务；先回环健康检查，再真实公网 HTTP 与 WS 验收。
 7. 核对 `/health`、四款目录就绪、真实浏览器两个独立玩家、`/ws`、`/tanks/`、`/quest/` 的 101/帧及动作；核对全部内部 TCP 监听仍为回环，运维路径 404、署名页可访问。
-8. 成功后记录运行 SHA、包和配置哈希、命令结果／执行数量／未验证项，再封装通用 Skill。
 
 后续更新失败：停用本项目 unit，恢复已记录的上一版 symlink 与本项目配置，校验后重启；保留失败产物用于诊断。首次发布无上一版：只停止新建 `linkplay.service`、Nginx，恢复部署前业务监听状态（仅 SSH）；保留包和安装的软件，不擅自卸载系统依赖，不启动默认 80 站点。
 
@@ -49,10 +65,3 @@
 - 坦克只新增非法输入边界，合法规则保持原版；方块只单人，地产桌游原版只同屏，Lichess 未接入。
 - 模型官方 API 已核实 Firewarden3D / CC-BY-4.0。公开署名在 `third-party.html`；其他素材商业授权与旧依赖审计仍未完成，用户已确认个人非商用试玩范围。
 
-## 验证记录（候选）
-
-- 全平台 `npm test`：32/32 文件通过、exit 0（新增未知读取保护前）。
-- 保护后的 `npm run test:beads`：模型 19/19、浏览器 24/24、exit 0。
-- 坦克真实处理器纯内存 fixture：30/30、exit 0，无网络、无时钟。
-- 本机试玩启动因未知进程占用 2567/8093 被预检拒绝；未停止或复用未知进程，不能声称本机新版四款联机验收通过。
-- 公网验收、运行配置哈希、部署回滚检查：待执行。

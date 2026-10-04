@@ -43,4 +43,8 @@
 - 本机2567/8093被未知进程占用，新版试玩启动被预检拒绝，未停止或复用；完整四款验收需在已授权的新服务器目标执行，不把旧服务作为新版证据。
 - 活动：提交候选、解决批准计划的add/add历史冲突并合入main，从固定提交生成发布包；实际服务尚未启动。
 - 未开始：固定代码上传、公网HTTP/WS验收、Skill写入。
+- 2026-10-04 部署完成：main de7afad 归档上传（SHA-256 7931d6a1…5549），依赖装入 /opt/linkplay/releases/de7afad…；期间一次工具中断留下孤儿 npm 与并发 npm ci 争锁，按精确 PID 终止后单独重装成功。linkplay.service 与仅 8881 的 Nginx 配置经 systemd-analyze verify / nginx -t 后启用；默认 80 站点 symlink 移除。
+- 公网真实验收全部通过：arcade-smoke BASE_URL+EXPECT_ARCADE_PROXY=1 8/8（errors=[]、remoteRequests=[]）；拼豆公网非安全源 24/24（含事务保存、关浏览器恢复、旧库迁移）；核心 /ws 公网建房/加入/双方落子/权威快照探针成功。公网监听仅 8881+22，8080/2567/8093 全回环；unit 零重启。公网首载素材 20–30s 导致一次验收超时，已把该用例等待放宽到公网档 90s，属测试预算非应用缺陷。
+- 运行配置与仓库快照 sha256 逐字节一致；完整事实、哈希与回滚边界记录在 deploy/private-server/README.md。
+- 未完成：Skill 写入与 sync-rules 登记（下一步）。
 - 不声明已发布；缺少任一目标验证时保持 needs-verification。

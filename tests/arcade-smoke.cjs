@@ -215,17 +215,18 @@ async function main() {
     await tankB.context.close();
     results.push("坦克：双端进入同一权威房间，收帧及输入发送通过");
 
-    // 6. 两个独立冒险角色完成握手并进入原版共享世界。
+    // 6. 两个独立冒险角色完成握手并进入原版共享世界；公网首载素材较慢，给足有界等待。
+    const questStart = expectProxy ? 90000 : 20000;
     const questA = await playerPage(browser);
     const questB = await playerPage(browser);
     const questFrameA = await enterGame(questA.page, "browserquest");
     const questFrameB = await enterGame(questB.page, "browserquest");
     await questFrameA.locator("#nameinput").fill("QuestOne");
     await questFrameA.locator("#createcharacter .play:not(.disabled)").click();
-    await questFrameA.locator("body.started").waitFor({ state: "attached" });
+    await questFrameA.locator("body.started").waitFor({ state: "attached", timeout: questStart });
     await questFrameB.locator("#nameinput").fill("QuestTwo");
     await questFrameB.locator("#createcharacter .play:not(.disabled)").click();
-    await questFrameB.locator("body.started").waitFor({ state: "attached" });
+    await questFrameB.locator("body.started").waitFor({ state: "attached", timeout: questStart });
     const population = expectProxy ? await publicJson("/quest/status") : await readLocalJson(8093, "/status");
     assert.ok(population.body[0] >= 2);
     assert.ok(questA.evidence.received > 0 && questB.evidence.received > 0);
