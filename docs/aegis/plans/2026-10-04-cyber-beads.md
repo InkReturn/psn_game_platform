@@ -26,6 +26,7 @@
 - 保留 stash c2c19ac0efac2e1ab654598651fd6fb031925415，不 apply/pop/drop。
 - 不另建 worktree，不 stash/reset/clean，不提交、推送或合并。
 - 模型、控制器与专用视图为新责任，新增独立 owner；大厅仅 wiring。复杂度预算：模型仅纯规则，控制器仅页面会话/存储/下载，不引入服务端或通用框架。
+- 主目录原批准计划由 2b30028 独立保存；合并选择任务分支的实际 TaskStartSnapshot，原主目录快照保留在该提交历史中。
 
 ## TDD Route
 - Mode: off
@@ -111,3 +112,11 @@
 - 主目录期间出现其他任务的 arcade/integrations/vendor 等并发改动；本任务只观察状态，不写入、搬运、清理或修复。保留记录 stash 未操作。
 - 复杂度与范围闭合：模型唯一负责数据规则，控制器负责会话/存储/下载，专用视图隔离样式；未新增通用框架、后端状态或兼容 owner。
 - 下一步：人工在真实手机浏览器体验触摸；需要集成时另行授权，本轮不 commit/push/merge。
+
+## 后续发布授权与当前责任
+
+以上 Checkpoint 为阶段二历史，不是当前部署状态。用户随后要求合并 main、包含已提交 arcade 任务并部署私有服务器 HTTP 8881；在该明确授权范围内允许本地提交／合并和独立服务器部署，不默认 push。
+
+HTTP 发布阶段 `beads-store.js` 为 IndexedDB 唯一持久化 owner，`beads-app.js` 为交互／会话 owner，`beads-model.js` 仍为纯 schema／算法 owner。Web Locks 写入路径已退役；旧 localStorage 仅为只读首次迁移来源且不删除。触摸幂等工具由 pointerup 选择，正式测试已移除 500ms 等待。
+
+当前证据：全平台 32/32；未知读取保护后的模型 19/19、浏览器 24/24；实际公网、运行 SHA 和后续状态以 `2026-10-04-private-server-release.md` 及 `deploy/private-server/README.md` 为准。
