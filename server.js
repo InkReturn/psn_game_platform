@@ -11,7 +11,7 @@ const express = require("express");
 const { createServer } = require("http");
 const path = require("path");
 const { createHub } = require("./server/ws/hub");
-const { arcadeCatalog, tetrisPage } = require("./server/arcade.cjs");
+const { arcadeCatalog, arcadeNetwork, tetrisPage } = require("./server/arcade.cjs");
 const { RoomManager } = require("./server/rooms/room-manager");
 const { BIND_HOST, PORT, DISCONNECT_GRACE_MS, ROOM_IDLE_TTL_MS } = require("./server/config");
 
@@ -35,6 +35,7 @@ app.get("/health", (_req, res) => {
 
 // 3. 开源试玩状态采用独立只读接口，不改变原有游戏房间。
 app.get("/api/arcade", arcadeCatalog);
+app.get("/api/arcade-network.js", arcadeNetwork);
 app.get(["/vendor/tetris/home", "/vendor/tetris/singleplayer"], tetrisPage);
 
 // 4. 静态资源（大厅与全部游戏页面）。

@@ -1,6 +1,6 @@
 # 开源试玩：来源、授权与接入边界
 
-本轮只做 **HTTP 本机试玩**，不部署生产、不连接真实数据库、不替换现有 11 款游戏。进入大厅的“开源试玩”后，状态接口会检查资源和独立服务；未就绪项目没有试玩按钮。源码链接不是游戏接入。
+原接入提交 `034c955` 限定为 HTTP 本机试玩。用户随后明确授权将四款一并发布到私有服务器的 HTTP IP 8881，限定个人非商用试玩，不连接数据库、不替换原有 11 款规则。公网配置、固定运行版本与真实验收记录见 [私有服务器发布记录](../deploy/private-server/README.md)。未就绪项目没有试玩按钮，源码链接不是游戏接入。
 
 ## 引入清单
 
@@ -16,17 +16,17 @@ boardgame.io（https://github.com/boardgameio/boardgame.io ）是 MIT 授权的�
 
 ## 素材和第三方依赖
 
-- 坦克客户端的 Pixel Tank 模型来自 Firewarden3D： https://sketchfab.com/3d-models/pixel-tank-d04bf57ee1ae4504856032549bcfd810 。上游 README 明确列出作者。本轮没有独立确认模型页面的完整素材许可；**项目 MIT 不能自动覆盖模型**，正式分发或商用前必须单独确认。
+- 坦克客户端的 Pixel Tank 模型来自 Firewarden3D： https://sketchfab.com/3d-models/pixel-tank-d04bf57ee1ae4504856032549bcfd810 。上游 README 明确列出作者；本次从 [Sketchfab 官方 API](https://api.sketchfab.com/v3/models/d04bf57ee1ae4504856032549bcfd810) 核实作者 Firewarden / Firewarden3D 与 CC-BY-4.0，已补公开署名、来源及修改说明。**项目 MIT 不能自动覆盖模型**。
 - BrowserQuest 原版内容为 CC-BY-SA-3.0： https://creativecommons.org/licenses/by-sa/3.0/ 。保留原版制作团队信息及上层 LICENSE。修改的客户端配置源文件仍保留在仓库，适配器位于 integrations 目录。MPL 正文： https://www.mozilla.org/MPL/2.0/ 。
 - 方块背景来自 Unsplash / Clemen Vrankar；自定义字体 Press Start 2P（codeman38）、Emulogic（Freaky Fonts）及图标来源见上游 Readme。上游依赖还包含 Fontsource 的 Poppins、Roboto。本轮不将这些资源统称 MIT；正式分发前分别核查。
 - 地产桌游代码 MIT 不代表 Monopoly 品牌、棋盘名称或图片拥有商用授权；仅供私有本地试玩评估。
 - jQuery 1.11.1 来自 https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js ，保留其原始头部和许可链接，运行时不再请求 Google CDN。
-- 原版及兼容依赖包含旧版本，本轮不宣称已通过安全审计。不得直接以生产服务开放这些试玩端口。
+- 原版及兼容依赖包含旧版本，不宣称已通过完整安全审计。内部 2567 / 8093 不对外监听；仅经 8881 同源 Nginx 进入个人试玩。用户已确认这一风险边界，不等同于正式商用生产批准。
 
 ## 实际修改
 
-1. 坦克：单独的回环启动入口；显式使用原版 experimentalDecorators 配置；删除试玩入口的管理面板装配，增加健康标识。原版 BattleRoom 及规则未改。客户端移除 Colyseus 调试面板导入，差异留在 `integrations/tanks-client-local.patch`。
-2. BrowserQuest：独立进程内用现代 ws 替代废弃 WebSocket 草案实现；保留原版动作协议和世界规则；恢复 Node 已移除的 path.exists 别名；避免原版 global.Map 覆盖现代连接表容器。客户端配置固定本机试玩服务，源码原地保留。
+1. 坦克：单独的回环启动入口；显式使用原版 experimentalDecorators 配置；删除试玩入口的管理面板装配，增加健康标识。合法对局规则保留；仅增加公网输入边界，拒绝 NaN / Infinity 和超范围方向、角度（纯内存真实处理器 30/30）。客户端移除调试面板、读取部署网络声明，公开模式忽略 `?server=`，本机开发覆盖仍可用（实际 bundle 表达式 8/8）。固定上游重建差异留在 `integrations/tanks-client-local.patch`，已在固定原始源码上 `git apply --check` 成功；该 patch 强制 LF。
+2. BrowserQuest：独立进程内用现代 ws 替代废弃 WebSocket 草案实现；保留原版动作协议和世界规则；恢复 Node 已移除的 path.exists 别名；避免原版 global.Map 覆盖现代连接表容器。客户端拓扑由同源部署声明决定，公网仅连接 `/quest/`，本机直连只在声明明确为 false 时使用；修改源码原地保留并随源码包提供。
 3. 方块：应用路由只挂载 SinglePlayer；React Router 使用 `/vendor/tetris` 前缀。差异留在 `integrations/tetris-local.patch`。上游常规 `npm run build` 存在未使用变量和旧测试类型错误，本轮使用 Vite 资源构建成功，**不声称上游 TypeScript 全量检查通过**。
 4. 地产桌游：只修改 HTML 中 jQuery 地址；原版游戏规则未改。
 

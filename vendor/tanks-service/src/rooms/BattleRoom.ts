@@ -102,7 +102,12 @@ export class BattleRoom extends Room {
   private bulletCounter = 0;
   private pickCounter = 0;
 
+  /**
+   * 创建原版战场、输入处理器和 20 FPS 模拟时钟，不连接数据库。
+   * @returns 初始化房间；非法输入被拒绝，合法规则与原版一致。
+   */
   onCreate() {
+    // 1. 初始化原版队伍、地图空间索引、障碍与拾取物。
     // 4 teams
     for (let i = 0; i < 4; i++) {
       this.state.teams.push(new TeamState());
@@ -131,19 +136,32 @@ export class BattleRoom extends Room {
     }));
 
     // ── Message handlers ──
-    this.onMessage("move", (client, data: { x: number; y: number }) => {
+    // 2. 注册原版消息；公网不允许非有限或超范围数值污染共享世界。
+    this.onMessage("move", /**
+     * 校验并记录本连接的移动意图，不接受其他玩家身份。
+     * @param client Colyseus 分配的连接，sessionId 决定可操作坦克。
+     * @param data 原版轴向输入，x/y 均为有限数且处于 [-1, 1]。
+     * @returns 无返回值；非法数据不修改方向。
+     */ (client, data: { x: number; y: number }) => {
+      // 2.1 按会话定位坦克，再验证两轴后整体更新。
       const tank = this.state.tanks.get(client.sessionId);
       if (!tank || tank.deleted) return;
-      if (typeof data?.x === "number" && typeof data?.y === "number") {
+      if (Number.isFinite(data?.x) && Number.isFinite(data?.y) && Math.abs(data.x) <= 1 && Math.abs(data.y) <= 1) {
         tank.dirX = data.x;
         tank.dirY = data.y;
       }
     });
 
-    this.onMessage("target", (client, angle: number) => {
+    this.onMessage("target", /**
+     * 校验并设置本连接的炮塔方向。
+     * @param client Colyseus 分配的连接，不能指定他人坦克。
+     * @param angle 原版客户端归一化后的角度，有限且处于 [0, 360)。
+     * @returns 无返回值；非法角度不修改共享状态。
+     */ (client, angle: number) => {
+      // 2.2 拒绝 NaN、Infinity 和超出原版归一化范围的角度。
       const tank = this.state.tanks.get(client.sessionId);
       if (!tank || tank.deleted) return;
-      if (typeof angle === "number") {
+      if (Number.isFinite(angle) && angle >= 0 && angle < 360) {
         tank.angle = angle;
       }
     });
@@ -161,6 +179,7 @@ export class BattleRoom extends Room {
       }
     });
 
+    // 3. 保持原版 20 FPS 模拟时钟和规则推进。
     // Game loop at 20 FPS
     this.setSimulationInterval(() => this.update(), 1000 / 20);
   }

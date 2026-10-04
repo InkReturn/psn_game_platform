@@ -43,7 +43,7 @@ async function arcadeCatalog(_request, response) {
   const games = await Promise.all(catalog.map(checkGame));
   // 2. 禁止缓存运行状态，避免重启后仍显示过期结果。
   response.setHeader("Cache-Control", "no-store");
-  response.json({ localOnly: true, games });
+  response.json({ games });
 }
 /**
  * 响应方块试玩的 React 路由刷新，不把资源文件 404 伪装成页面成功。
@@ -54,4 +54,15 @@ function tetrisPage(_request, response) {
   // 1. 返回已构建的本地页面；缺文件时由 Express 正常报告错误。
   response.sendFile(path.join(root, "vendor/tetris/index.html"));
 }
-module.exports = { arcadeCatalog, checkGame, tetrisPage };
+/**
+ * 声明直接访问 Node 的本机开发网络模式；公网 Nginx 在同一路径显式声明代理模式。
+ * @param {import('express').Request} _request 无业务参数，不接受用户指定目标地址。
+ * @param {import('express').Response} response 经典 JavaScript 响应，供两个原版客户端读取。
+ * @returns {void} 不缓存环境声明，不改变游戏状态；不存在声明时客户端默认走同源路径而非内部端口。
+ */
+function arcadeNetwork(_request, response) {
+  // 1. Node 只监听回环；直接启动的本机开发仍使用拥有的独立回环端口。
+  response.setHeader("Cache-Control", "no-store");
+  response.type("application/javascript").send("window.LINKPLAY_ARCADE_PROXY = false;\n");
+}
+module.exports = { arcadeCatalog, arcadeNetwork, checkGame, tetrisPage };

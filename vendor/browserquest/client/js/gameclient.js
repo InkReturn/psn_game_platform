@@ -44,8 +44,14 @@ define(['player', 'entityfactory', 'lib/bison'], function(Player, EntityFactory,
             this.isListening = false;
         },
         
+        /**
+         * 连接同源冒险服务，游戏握手和动作协议保持原版不变。
+         * @param {boolean} dispatcherMode 原版调度模式；当前独立世界配置为 false。
+         * @returns {void} 建立 WebSocket 并注册原版处理器；连接失败交给原版错误 UI。
+         */
         connect: function(dispatcherMode) {
-            var url = "ws://"+ this.host +":"+ this.port +"/",
+            // 1. 使用部署显式声明的拓扑，公网为同源代理，本机直连只由可信回环服务声明。
+            var url = (window.location.protocol === "https:" ? "wss://" : "ws://") + this.host + ":" + this.port + (window.LINKPLAY_ARCADE_PROXY !== false ? "/quest/" : "/"),
                 self = this;
             
             log.info("Trying to connect to server : "+url);
@@ -56,6 +62,7 @@ define(['player', 'entityfactory', 'lib/bison'], function(Player, EntityFactory,
                 this.connection = new WebSocket(url);
             }
             
+            // 2. 保留原版调度、握手与快照处理器，不修改世界规则。
             if(dispatcherMode) {
                 this.connection.onmessage = function(e) {
                     var reply = JSON.parse(e.data);

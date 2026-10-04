@@ -7,3 +7,26 @@ index 96db53b..6a0c27d 100644
  import { Game } from "./Game";
  
  const game = new Game();
+diff --git a/web-threejs/src/Game.ts b/web-threejs/src/Game.ts
+--- a/web-threejs/src/Game.ts
++++ b/web-threejs/src/Game.ts
+@@ -99,5 +99,8 @@ export class Game {
+     const params = new URLSearchParams(window.location.search);
+-    const serverUrl = params.get("server")
+-      || import.meta.env.VITE_SERVER_URL
+-      || `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:2567`;
++    // 1. 部署声明唯一决定拓扑；只有显式本机开发模式可以使用覆盖地址。
++    const proxy = (window as Window & { LINKPLAY_ARCADE_PROXY?: boolean }).LINKPLAY_ARCADE_PROXY !== false;
++    const scheme = window.location.protocol === "https:" ? "wss" : "ws";
++    const serverUrl = proxy
++      ? `${scheme}://${window.location.host}/tanks`
++      : (params.get("server") || import.meta.env.VITE_SERVER_URL || `${scheme}://${window.location.hostname}:2567`);
+     this.network = new Network(serverUrl);
+diff --git a/web-threejs/index.html b/web-threejs/index.html
+--- a/web-threejs/index.html
++++ b/web-threejs/index.html
+@@ -208,3 +208,4 @@
++  <script src="/api/arcade-network.js"></script>
+   <script type="module" src="/src/main.ts"></script>
+ </body>
+ </html>

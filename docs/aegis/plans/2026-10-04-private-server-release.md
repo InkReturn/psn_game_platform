@@ -34,6 +34,13 @@
 - 主目录已由其他任务独立提交：034c9550660c1d71179af15a1d47e1e423fe9565（feat: integrate four open-source arcade games for local play），当前只有 docs/ 未跟踪。初始 patch/path 快照为空是因为该提交已落地，不作为代码证据；后续集成以固定提交为准。
 - 素材求证：Sketchfab 官方模型 API 返回 Pixel Tank / Firewarden3D 为 CC-BY-4.0，需署名、允许商用；后续必须把出处、许可与修改说明落可访问署名页，不只在内部日志声称已确认。
 - Skill 基线只读场景已通过原生前台子 Agent 执行（dispatch 后台因宿主 owner 错误不可用，未盲重试）；给出了通用安全建议，但未知本项目服务名/路径/回滚命令，部署后作为参考检索场景验证。
-- 活动：将已验收拼豆提交并集成固定 arcade 提交，处理同源代理和素材署名；不创建新 worktree。
-- 未开始：运行环境安装、服务器写入/部署、Skill 写入。
+- 集成已验证：拼豆 0d7ee33 与 arcade 034c955 在任务分支形成 f556336；main 为批准计划保存提交 2b30028，主目录四个无关未跟踪文档及原 stash 保留。
+- 用户追加明确确认：包含四款的个人非商用公开试玩，授权安装 Node/npm/Nginx、独立 linkplay.service、/opt/linkplay/releases 与专属 Nginx 配置，仅开放 8881，不动 SSH/旧服/防火墙。
+- 已安装：官方发行版 Node v22.22.1、npm9.2.0、Nginx1.28.3；新 Nginx 已 mask，避免默认80自动启动。脚本尾部CR导致最后true命令退出1，实际安装经版本、dpkg --audit、inactive 与仅SSH监听复核成功，未盲目重装。
+- 新候选：同源模式声明与 /tanks/、/quest/，包装页不再强制2567；公开署名页；坦克非法数值输入边界。正式配置、操作范围、回滚与证据记录在 deploy/private-server/README.md。
+- fresh证据：全平台32/32文件exit0；新增未知读取基线保护后模型19/19、浏览器24/24；真实坦克处理器纯内存30/30；真实产物网络声明优先级8/8；固定上游源patch应用校验通过。
+- 独立只读审查已完成，修复了公开模式查询参数绕过与Nginx proxy_set_header继承问题；原生一次性审查结束后send_message不能续聊，未盲重试。
+- 本机2567/8093被未知进程占用，新版试玩启动被预检拒绝，未停止或复用；完整四款验收需在已授权的新服务器目标执行，不把旧服务作为新版证据。
+- 活动：提交候选、解决批准计划的add/add历史冲突并合入main，从固定提交生成发布包；实际服务尚未启动。
+- 未开始：固定代码上传、公网HTTP/WS验收、Skill写入。
 - 不声明已发布；缺少任一目标验证时保持 needs-verification。

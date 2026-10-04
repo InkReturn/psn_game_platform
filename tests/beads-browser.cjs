@@ -291,11 +291,18 @@ async function main() {
       await legacy.page.fill("#workName", "迁移后继续编辑"); await saved(legacy.page); await legacy.page.reload(); await legacy.page.waitForFunction(hookReady);
       assert.equal(active(await state(legacy.page)).name, "迁移后继续编辑"); assert.equal(await legacy.page.evaluate(legacyRaw), JSON.stringify(original));
     });
+    await check("初次读取失败后重试不遮蔽既有旧版存档", /** @returns {Promise<void>} 验证未知基线不能被当作空库。 */ async function () { // 1. 旧版已有作品，但事务库初次被策略拒绝。
+      const unknown = await context(); const raw = backupBytes.toString(); await unknown.ctx.addInitScript(seedLegacy, raw); await unknown.ctx.addInitScript(denyStorage);
+      await open(unknown.page); await unknown.page.waitForFunction(blockedBy, "storage"); await paint(unknown.page, 0, 0);
+      // 2. 能力恢复后明确重试，应提示重载旧存档，不写入新的空模板遮蔽迁移来源。
+      await unknown.page.evaluate(restoreStorage); await unknown.page.click("#retryBtn"); await unknown.page.waitForFunction(blockedBy, "conflict");
+      assert.equal(await unknown.page.evaluate(rawStorage), null); assert.equal(await unknown.page.evaluate(legacyRaw), raw); assert.ok(active(await state(unknown.page)).cells[0]);
+    });
     await check("全程无未处理页面错误", /** @returns {Promise<void>} 验证异常收集。 */ async function () { // 1. 故障 fixture 也不能产生未处理异常。
       assert.deepEqual(errors, []);
     });
     // 2. 防止意外零用例或数量缩水被当成成功。
-    assert.equal(passed, 23); console.log(`\n${passed}/23 browser acceptance cases passed`);
+    assert.equal(passed, 24); console.log(`\n${passed}/24 browser acceptance cases passed`);
   } finally {
     // 3. 只清理本脚本创建的浏览器与临时服务。
     for (const ctx of contexts) await ctx.close(); if (browser) await browser.close();

@@ -5,9 +5,21 @@ const { chromium } = require("playwright");
 const { readLocalJson } = require("../integrations/local-health.cjs");
 const { checkGame } = require("../server/arcade.cjs");
 const baseUrl = process.env.BASE_URL || "http://127.0.0.1:8080";
+const expectProxy = process.env.EXPECT_ARCADE_PROXY === "1";
 const errors = [];
 const remoteRequests = [];
 const results = [];
+
+/**
+ * 查询当前被测平台的有界 JSON 接口，不把远端 BASE_URL 错当成本机端口。
+ * @param {string} route 固定以 / 开头的被测接口路径，由测试源码提供。
+ * @returns {Promise<Object>} HTTP 状态和 JSON；网络或解码失败拒绝。
+ */
+async function publicJson(route) {
+  // 1. 仅查询本次明确指定的被测服务。
+  const response = await fetch(baseUrl + route, { signal: AbortSignal.timeout(5000) });
+  return { statusCode: response.status, body: await response.json() };
+}
 
 /**
  * 记录浏览器脚本异常，最终验收必须为零。
@@ -23,9 +35,10 @@ function recordError(error) {
  * @param {import('playwright').Request} request 实际浏览器请求。
  */
 function recordRequest(request) {
-  // 1. 游戏试玩必须不依赖远程公共服务或 CDN。
+  // 1. 公网必须同源；本机开发仅允许明确的回环服务，不放宽为任意外站。
   const url = new URL(request.url());
-  if (["http:", "https:"].includes(url.protocol) && !["127.0.0.1", "localhost"].includes(url.hostname)) remoteRequests.push(url.href);
+  const allowed = expectProxy ? url.origin === new URL(baseUrl).origin : ["127.0.0.1", "localhost"].includes(url.hostname);
+  if (["http:", "https:"].includes(url.protocol) && !allowed) remoteRequests.push(url.href);
 }
 
 /**
@@ -36,6 +49,11 @@ function recordRequest(request) {
 function recordSocket(evidence, socket) {
   // 1. 记录真实服务器房间 URL，不模拟服务端快照。
   evidence.urls.push(socket.url());
+  if (expectProxy) {
+    const actual = new URL(socket.url()), expected = new URL(baseUrl);
+    assert.equal(actual.host, expected.host, "公网游戏不得连接内部端口");
+    assert.ok(actual.pathname.startsWith("/tanks/") || actual.pathname === "/quest/", "公网游戏必须经过固定代理路径");
+  }
   socket.on("framesent", countSent.bind(null, evidence));
   socket.on("framereceived", countReceived.bind(null, evidence));
 }
@@ -120,7 +138,7 @@ function stageChanged(before) {
 async function main() {
   // 1. 核查四款实际资源、两个独立服务和一个明确待接入项目。
   fs.mkdirSync("outputs", { recursive: true });
-  const catalogResponse = await readLocalJson(Number(new URL(baseUrl).port || 80), "/api/arcade");
+  const catalogResponse = await publicJson("/api/arcade");
   assert.equal(catalogResponse.statusCode, 200);
   const games = catalogResponse.body.games;
   let ready = 0;
@@ -137,7 +155,7 @@ async function main() {
     // 2. 验证大厅入口、未接入项目无试玩按钮及移动端布局。
     const lobby = await playerPage(browser);
     await lobby.page.goto(baseUrl);
-    assert.equal(await lobby.page.locator(".lobby-grid > a").count(), 11);
+    assert.equal(await lobby.page.locator(".lobby-grid > a").count(), 12);
     await lobby.page.getByRole("link", { name: "开源试玩 →" }).click();
     await lobby.page.locator('.arcade-card[data-game="tanks"] .arcade-action').waitFor();
     assert.equal(await lobby.page.locator(".arcade-action").count(), 4);
@@ -208,7 +226,7 @@ async function main() {
     await questFrameB.locator("#nameinput").fill("QuestTwo");
     await questFrameB.locator("#createcharacter .play:not(.disabled)").click();
     await questFrameB.locator("body.started").waitFor({ state: "attached" });
-    const population = await readLocalJson(8093, "/status");
+    const population = expectProxy ? await publicJson("/quest/status") : await readLocalJson(8093, "/status");
     assert.ok(population.body[0] >= 2);
     assert.ok(questA.evidence.received > 0 && questB.evidence.received > 0);
     await questA.page.screenshot({ path: "outputs/arcade-quest.png", fullPage: true });
@@ -226,13 +244,22 @@ async function main() {
     assert.equal(await invalid.page.locator("#game-frame").isVisible(), false);
     await invalid.context.close();
     results.push("边界：非法编号和未接入项目均不生成游戏 iframe");
+    if (expectProxy) {
+      // 7.1 验证真实公网代理拓扑、内部运维路径不可读和公开署名。
+      const declaration = await fetch(`${baseUrl}/api/arcade-network.js`, { signal: AbortSignal.timeout(5000) });
+      assert.match(await declaration.text(), /LINKPLAY_ARCADE_PROXY = true/);
+      for (const route of ["/server.js", "/package.json", "/deploy/private-server/linkplay.service", "/node_modules/express/package.json"]) assert.equal((await fetch(baseUrl + route)).status, 404);
+      const credits = await fetch(`${baseUrl}/third-party.html`); assert.equal(credits.status, 200); assert.match(await credits.text(), /Firewarden3D/);
+      results.push("公网：8881 同源双世界、部署声明与内部路径保护、可访问署名通过");
+    }
     assert.deepEqual(errors, [], "浏览器不能存在脚本异常");
     assert.deepEqual(remoteRequests, [], "试玩运行不能依赖外部 CDN 或公共服务器");
   } finally {
     await browser.close();
   }
   // 8. 输出执行数量及可重放证据，不把零用例或跳过当通过。
-  const report = { passed: results.length, results, errors, remoteRequests };
+  assert.equal(results.length, expectProxy ? 8 : 7, "验收数量不得为零或因跳过而缩水");
+  const report = { passed: results.length, proxy: expectProxy, baseUrl, results, errors, remoteRequests };
   fs.writeFileSync("outputs/arcade-verification.json", JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 }

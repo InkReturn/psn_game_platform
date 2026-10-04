@@ -7,7 +7,7 @@
   const board = document.getElementById("beadBoard"), ctx = board.getContext("2d");
   const HISTORY_LIMIT = 80, store = window.BeadStore;
   const channel = typeof BroadcastChannel === "function" ? new BroadcastChannel(M.STORAGE_KEY) : null;
-  let archive, expectedRaw = null, corruptRaw = null, blocked = "", dirty = false;
+  let archive, expectedRaw, corruptRaw = null, blocked = "", dirty = false;
   let saveQueue = Promise.resolve(), color = M.PALETTE[3], tool = "paint", pixelPreview = false;
   let undoStack = [], redoStack = [], stroke = null, cursor = { x: 0, y: 0 };
 
@@ -82,6 +82,12 @@
     const next = { ...archive, revision: archive.revision + 1 }, raw = M.serializeArchive(next);
     // 2. 唯一 IndexedDB readwrite 事务内比较并写入，旧页不能覆盖新存档。
     try {
+      // 2.1 初次读取失败意味着基线未知，不是空库。重试只在新旧库都确实为空时建立新基线。
+      if (expectedRaw === undefined) {
+        const actual = await store.read();
+        if (actual !== null || localStorage.getItem(M.STORAGE_KEY) !== null) { block("conflict"); return; }
+        expectedRaw = null;
+      }
       if (!await store.compareAndSet(expectedRaw, raw)) { block("conflict"); return; }
       archive.revision = next.revision; expectedRaw = raw;
       // 3. 异步事务期间可能有新编辑；不能把后来的变动标为已保存。
@@ -110,7 +116,7 @@
           await store.compareAndSet(null, legacy); expectedRaw = await store.read();
         }
       }
-    } catch { archive = freshArchive(); block("storage"); return; }
+    } catch { expectedRaw = undefined; archive = freshArchive(); block("storage"); return; }
     // 2. 首次创建或完整恢复，不把损坏当空库。
     if (expectedRaw === null) { archive = freshArchive(); queueSave(); }
     else {

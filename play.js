@@ -18,11 +18,9 @@ async function openGame() {
     document.getElementById("game-title").textContent = game.name;
     document.title = `${game.name} · LinkPlay`;
     if (!game.ready) throw new Error(game.reason || "游戏尚未接入");
-    // 2. 仅挂载本平台 vendor 资源；联机试玩不支持未经配置的 HTTPS/WSS 部署。
+    // 2. 仅挂载本平台 vendor 资源；网络拓扑由同源部署声明负责，不在包装页重复覆盖内部端口。
     if (!game.entry.startsWith("/vendor/")) throw new Error("试玩入口不在本地资源目录");
-    if (game.servicePort && location.protocol !== "http:") throw new Error("联机试玩需从本机 HTTP 地址打开，尚未配置生产 WSS");
     const entry = new URL(game.entry, location.origin);
-    if (game.id === "tanks") entry.searchParams.set("server", `ws://${location.hostname}:2567`);
     const frame = document.getElementById("game-frame");
     frame.src = entry.href;
     frame.title = game.name;
