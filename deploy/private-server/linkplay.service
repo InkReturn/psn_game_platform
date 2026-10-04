@@ -13,6 +13,7 @@ WorkingDirectory=/opt/linkplay/current
 Environment=PORT=8080
 Environment=BIND_HOST=127.0.0.1
 Environment=NODE_ENV=production
+Environment=LINKPLAY_AUTH_FILE=/var/lib/linkplay/accounts.json
 ExecStart=/usr/bin/node integrations/start-arcade.cjs
 Restart=on-failure
 RestartSec=5
@@ -23,6 +24,7 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadOnlyPaths=/opt/linkplay
+StateDirectory=linkplay
 UMask=0027
 MemoryMax=1200M
 CPUQuota=200%
