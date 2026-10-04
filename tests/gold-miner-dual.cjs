@@ -633,51 +633,60 @@ async function scenario(name, f) {
       const deadline = before.game.endsAt;
       f.expectOffline = true;
       try {
-      await f.contextB.setOffline(true);
-      await f.b.evaluate(/** 关闭乙页面实际创建的WS，制造真实断线而非伪造快照。
-        * @returns {void} 遍历观察到的socket并关闭；未登记时使用空数组，关闭异常传播；不发新的游戏操作。
-        */
-       () => { /* 1. 真正关闭本页面的WS，离线期不新发操作。 */ for (const socket of window.__gmSockets || []) socket.close(); });
-      await waitState(f.a, /** 等待甲从权威成员列表观察到乙真实离线。
-        * @param {object} s - 甲最新非空入房镜像，room.players为权威成员列表。
-        * @param {string} id - 乙已分配的非空玩家标识，仅用来定位观察对象。
-        * @returns {boolean} 乙仍在房间但未连接为真；房间缺失时抛错，不修改成员。
-        */
-       (s, id) => { /* 1. 检查指定成员的权威连接状态。 */ return s.room.players.some(
-         /** 识别指定仍在房内的离线成员。
-          * @param {object} p - 非空房间成员记录，connected为权威连接状态。
-          * @returns {boolean} 身份匹配且未连接为真；纯观测，无副作用或预期异常。
+        await f.contextB.setOffline(true);
+        await f.b.evaluate(/** 关闭乙页面实际创建的WS并阻止重连，制造真实断线而非伪造快照。
+          * @returns {void} 标记离线状态并关闭观察到的socket；不发新的游戏操作。
           */
-         (p) => { /* 1. 同时匹配身份与离线状态。 */ return p.playerId === id && !p.connected; }); }, f.idB);
-      await waitState(f.a, /** 等待甲观察到离线乙的钩仍由服务器完成回收计分。
-        * @param {object} s - 甲非空权威镜像，须含乙的本局矿工记录。
-        * @param {string} id - 乙非空服务器玩家标识，只作观测定位。
-        * @returns {boolean} 乙金额大于0为真；矿工缺失时抛错，不替乙发送操作。
-        */
-       (s, id) => { /* 1. 读取离线身份的真实回收金额。 */ return s.game.miners.find(/** 定位显式指定身份的参赛矿工以读取离线回收得分。
-          * @param {object} m - 非空权威矿工记录，playerId为服务端参赛身份。
-          * @returns {boolean} 与外层显式身份相同为真；只读比较，无副作用或预期异常。
+         () => {
+           // 1. 设置标记阻止回环重连，确保测试可观察到断线状态。
+           window.__gmBlockReconnect = true;
+           for (const socket of window.__gmSockets || []) socket.close();
+         });
+        await waitState(f.a, /** 等待甲从权威成员列表观察到乙真实离线。
+          * @param {object} s - 甲最新非空入房镜像，room.players为权威成员列表。
+          * @param {string} id - 乙已分配的非空玩家标识，仅用来定位观察对象。
+          * @returns {boolean} 乙仍在房间但未连接为真；房间缺失时抛错，不修改成员。
           */
-         (m) => { /* 1. 按显式玩家标识匹配矿工。 */ return m.playerId === id; }).score > 0; }, f.idB);
-      await f.contextB.setOffline(false);
-      await waitState(f.b, /** 等待乙以原身份恢复连接，并从自己的镜像确认离线回收得分。
-        * @param {object} s - 恢复中的乙非空镜像，须含房间及参赛矿工记录。
-        * @param {string} id - 断线前乙的非空服务器身份，不用于伪造输入。
-        * @returns {boolean} 在线、身份、成员连接和得分全满足时为真；记录缺失时抛错，纯观测。
-        */
-       (s, id) => { /* 1. 同时核对原身份、真实重连和离线所得金额。 */ return s.online === "online" && s.playerId === id && s.room.players.some(
-         /** 确认原身份成员的服务端连接状态已恢复。
-          * @param {object} p - 非空房间成员，connected为权威连接布尔值。
-          * @returns {boolean} 身份匹配且连接为真；只读比较，无副作用或预期异常。
+         (s, id) => { /* 1. 检查指定成员的权威连接状态。 */ return s.room.players.some(
+           /** 识别指定仍在房内的离线成员。
+            * @param {object} p - 非空房间成员记录，connected为权威连接状态。
+            * @returns {boolean} 身份匹配且未连接为真；纯观测，无副作用或预期异常。
+            */
+           (p) => { /* 1. 同时匹配身份与离线状态。 */ return p.playerId === id && !p.connected; }); }, f.idB);
+        await waitState(f.a, /** 等待甲观察到离线乙的钩仍由服务器完成回收计分。
+          * @param {object} s - 甲非空权威镜像，须含乙的本局矿工记录。
+          * @param {string} id - 乙非空服务器玩家标识，只作观测定位。
+          * @returns {boolean} 乙金额大于0为真；矿工缺失时抛错，不替乙发送操作。
           */
-         (p) => { /* 1. 同时核对成员身份和在线连接。 */ return p.playerId === id && p.connected; }) && s.game.miners.find(/** 定位显式指定身份的参赛矿工以读取离线回收得分。
-          * @param {object} m - 非空权威矿工记录，playerId为服务端参赛身份。
-          * @returns {boolean} 与外层显式身份相同为真；只读比较，无副作用或预期异常。
+         (s, id) => { /* 1. 读取离线身份的真实回收金额。 */ return s.game.miners.find(/** 定位显式指定身份的参赛矿工以读取离线回收得分。
+            * @param {object} m - 非空权威矿工记录，playerId为服务端参赛身份。
+            * @returns {boolean} 与外层显式身份相同为真；只读比较，无副作用或预期异常。
+            */
+           (m) => { /* 1. 按显式玩家标识匹配矿工。 */ return m.playerId === id; }).score > 0; }, f.idB);
+        await f.b.evaluate(/** 解除乙页面重连阻止，允许自动恢复连接。
+          * @returns {void} 清除离线标记；无额外操作。
           */
-         (m) => { /* 1. 按显式玩家标识匹配矿工。 */ return m.playerId === id; }).score > 0; }, f.idB);
-      const after = await state(f.b); assert.equal(after.game.endsAt, deadline); assert.equal(after.playerId, f.idB); assert(own(after).score > 0);
+         () => { window.__gmBlockReconnect = false; });
+        await f.contextB.setOffline(false);
+        await waitState(f.b, /** 等待乙以原身份恢复连接，并从自己的镜像确认离线回收得分。
+          * @param {object} s - 恢复中的乙非空镜像，须含房间及参赛矿工记录。
+          * @param {string} id - 断线前乙的非空服务器身份，不用于伪造输入。
+          * @returns {boolean} 在线、身份、成员连接和得分全满足时为真；记录缺失时抛错，纯观测。
+          */
+         (s, id) => { /* 1. 同时核对原身份、真实重连和离线所得金额。 */ return s.online === "online" && s.playerId === id && s.room.players.some(
+           /** 确认原身份成员的服务端连接状态已恢复。
+            * @param {object} p - 非空房间成员，connected为权威连接布尔值。
+            * @returns {boolean} 身份匹配且连接为真；只读比较，无副作用或预期异常。
+            */
+           (p) => { /* 1. 同时核对成员身份和在线连接。 */ return p.playerId === id && p.connected; }) && s.game.miners.find(/** 定位显式指定身份的参赛矿工以读取离线回收得分。
+            * @param {object} m - 非空权威矿工记录，playerId为服务端参赛身份。
+            * @returns {boolean} 与外层显式身份相同为真；只读比较，无副作用或预期异常。
+            */
+           (m) => { /* 1. 按显式玩家标识匹配矿工。 */ return m.playerId === id; }).score > 0; }, f.idB);
+        const after = await state(f.b); assert.equal(after.game.endsAt, deadline); assert.equal(after.playerId, f.idB); assert(own(after).score > 0);
       } finally {
         // 1.3 断言失败也必须恢复网络，不能让后续用例被fixture离线状态污染。
+        try { await f.b.evaluate(() => { window.__gmBlockReconnect = false; }); } catch {}
         await f.contextB.setOffline(false); f.expectOffline = false;
       }
       await f.b.screenshot({ path: path.join(ROOT, "outputs/gold-miner-independent-mobile.png"), fullPage: true });
@@ -882,7 +891,7 @@ async function main() {
        */
       () => {
       // 1. 保存原生构造器并初始化本页面自己的socket观察数组。
-      const Native = window.WebSocket; window.__gmSockets = [];
+      const Native = window.WebSocket; window.__gmSockets = []; window.__gmBlockReconnect = false;
       // 2. 以原生子类登记构造成功的真实连接，保持原生网络和协议行为。
       window.WebSocket = class ObservedSocket extends Native {
         /** 登记测试观察用真实连接。
@@ -890,7 +899,16 @@ async function main() {
          * @returns {ObservedSocket} 本页面真实WS子类实例，额外登记到本页面观察数组，不改变发送行为。
          * @throws {Error} 原生构造参数无效或浏览器限制时传播原生异常，不登记未构造完成的实例。
          */
-        constructor(...args) { /* 1. 调用原生网络并登记引用。 */ super(...args); window.__gmSockets.push(this); }
+        constructor(...args) {
+          /* 1. 模拟断网期间阻止WS重连成功，避免回环下setOffline被绕过导致未能观察到离线态。 */
+          if (window.__gmBlockReconnect) {
+            super(...args);
+            setTimeout(() => { try { this.close(); } catch {} }, 0);
+            return;
+          }
+          /* 2. 调用原生网络并登记引用。 */
+          super(...args); window.__gmSockets.push(this);
+        }
       };
     });
     f.a = await f.contextA.newPage(); f.b = await f.contextB.newPage();
